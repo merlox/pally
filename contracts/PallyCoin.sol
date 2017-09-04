@@ -290,8 +290,6 @@ contract PallyCoin is PausableToken {
 
    address public crowdsale;
 
-   bool public isCrowdsaleSet = false;
-
    /// @notice Only allows the execution of the function if it's comming from crowdsale
    modifier onlyCrowdsale() {
       require(msg.sender == crowdsale);
@@ -306,15 +304,12 @@ contract PallyCoin is PausableToken {
       balances[msg.sender] = 40000000;
    }
 
-   /// @notice Function to set the crowdsale smart contract's address only once and
-   /// only by the owner of this token
+   /// @notice Function to set the crowdsale smart contract's address only by the owner of this token
    /// @param _crowdsale The address that will be used
    function setCrowdsaleAddress(address _crowdsale) onlyOwner whenNotPaused {
       require(_crowdsale != address(0));
-      require(!isCrowdsaleSet);
 
       crowdsale = _crowdsale;
-      isCrowdsaleSet = true;
    }
 
    /// @notice Distributes the presale tokens. Only the owner can do this

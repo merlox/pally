@@ -271,12 +271,74 @@ contract PausableToken is StandardToken, Pausable {
 }
 
 
-/// @title The PallyCoin abstraction
+/// @title The PallyCoin
 /// @author Merunas Grincalaitis
 contract PallyCoin is PausableToken {
+   string public name = 'PallyCoin';
 
-   // TODO Make sure this interface works
-   function distributeICOTokens(address _buyer, uint amountOfTokens);
+   string public constant symbol = 'PAL';
+
+   uint8 public constant decimals = 18;
+
+   uint256 public constant totalSupply = 100000000; // 100 M
+
+   // The tokens already used for the presale buyers
+   uint256 public tokensDistributedPresale = 0;
+
+   // The tokens already used for the ICO buyers
+   uint256 public tokensDistributedCrowdsale = 0;
+
+   address public crowdsale;
+
+   /// @notice Only allows the execution of the function if it's comming from crowdsale
+   modifier onlyCrowdsale() {
+      require(msg.sender == crowdsale);
+      _;
+   }
+
+   /// @notice Constructor used to set the platform & development tokens. This is
+   /// The 20% + 20% of the 100 M tokens used for platform and development team.
+   /// The owner, msg.sender, is able to do allowance for other contracts. Remember
+   /// to use `transferFrom()` if you're allowed
+   function PallyCoin() {
+      balances[msg.sender] = 40000000;
+   }
+
+   /// @notice Function to set the crowdsale smart contract's address only by the owner of this token
+   /// @param _crowdsale The address that will be used
+   function setCrowdsaleAddress(address _crowdsale) onlyOwner whenNotPaused {
+      require(_crowdsale != address(0));
+
+      crowdsale = _crowdsale;
+   }
+
+   /// @notice Distributes the presale tokens. Only the owner can do this
+   /// @param _buyer The address of the buyer
+   /// @param amountOfTokens The amount of tokens corresponding to that buyer
+   function distributePresaleTokens(address _buyer, uint amountOfTokens) onlyOwner whenNotPaused {
+      require(_buyer != address(0));
+      require(amountOfTokens > 0);
+
+      // Check that the limit of 10M presale tokens hasn't been met yet
+      require(tokensDistributedPresale <= 10000000);
+
+      balances[_buyer] = balances[_buyer].add(amountOfTokens);
+      tokensDistributedPresale = tokensDistributedPresale.add(amountOfTokens);
+   }
+
+   /// @notice Distributes the ICO tokens. Only the crowdsale address can execute this
+   /// @param _buyer The buyer address
+   /// @param amountOfTokens The amount of tokens to send to that address
+   function distributeICOTokens(address _buyer, uint amountOfTokens) onlyCrowdsale whenNotPaused {
+      require(_buyer != address(0));
+      require(amountOfTokens > 0);
+
+      // Check that the limit of 50M ICO tokens hasn't been met yet
+      require(tokensDistributedCrowdsale <= 50000000);
+
+      balances[_buyer] = balances[_buyer].add(amountOfTokens);
+      tokensDistributedCrowdsale = tokensDistributedCrowdsale.add(amountOfTokens);
+   }
 }
 
 
