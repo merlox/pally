@@ -330,10 +330,10 @@ contract Crowdsale is PallyCoin {
    uint256 public constant maxTokensRaised = 50000000;
 
    // The minimum amount of Wei you must pay to participate in the crowdsale
-   uint256 public minPurchase;
+   uint256 public minPurchase = 0.1 ether;
 
    // The max amount of Wei that you can pay to participate in the crowdsale
-   uint256 public maxPurchase;
+   uint256 public maxPurchase = 2000 ether;
 
    // If the crowdsale is still active or if it's ended
    bool public crowdsaleEnded = false;
@@ -351,33 +351,23 @@ contract Crowdsale is PallyCoin {
    }
 
    /// @notice Constructor of the crowsale to set up the main variables and create a token
-   /// @param _startTime When the crowdsale starts
-   /// @param _endTime When the crowdsale ends
-   /// @param _rate How much tokens you get per Wei
-   /// @param _wallet The wallet that stores the Wei raised
+   /// @param _wallet The wallet address that stores the Wei raised
+   /// @param _tokenAddress The token used for the ICO
    function Crowdsale(
       address _wallet,
-      uint256 _minPurchase,
-      uint256 _maxPurchase,
       address _tokenAddress
    ) {
       require(_wallet != address(0));
       require(_tokenAddress != address(0));
-      require(_maxPurchase > 0);
-      require(_maxPurchase >= _minPurchase);
 
       token = PallyCoin(_tokenAddress);
       wallet = _wallet;
-      minPurchase = _minPurchase;
-      maxPurchase = _maxPurchase;
    }
 
    /// @notice Fallback function to buy tokens
    function () payable {
       buyTokens(msg.sender);
    }
-
-   // TODO If you send more ether than tokens available, you'll get the difference of ether refunded.
 
    /// @notice To buy tokens given an address
    /// @param beneficiary The address that will get the tokens
@@ -441,14 +431,14 @@ contract Crowdsale is PallyCoin {
    /// @param tokensLimit The limit of that tier
    /// @param tierSelected The tier selected
    /// @return uint The total amount of tokens bought combining the tier prices
-   function buyExcessTokens(uint256 tokensLimit, uint8 tierSelected) internal return(uint256){
+   function buyExcessTokens(uint256 tokensLimit, uint256 tierSelected) internal returns(uint256){
       uint256 weiAmount = msg.value;
       uint256 tokens = weiAmount.mul(rate);
 
       // Calculate how many tokens there are of this tier
-      tokensOfThisTier = tokens.sub((tokensRaised.add(tokens)).sub(tokensLimit));
-      weiAmountOfThisTier = (tokensOfThisTier.mul(weiAmount)).div(tokens);
-      weiForNextTier = weiAmount.sub(weiAmountOfThisTier);
+      uint tokensOfThisTier = tokens.sub((tokensRaised.add(tokens)).sub(tokensLimit));
+      uint weiAmountOfThisTier = (tokensOfThisTier.mul(weiAmount)).div(tokens);
+      uint weiForNextTier = weiAmount.sub(weiAmountOfThisTier);
 
       uint tokensThis = buyTokensTier(weiAmountOfThisTier, tierSelected);
       uint tokensNext = 0;
@@ -466,7 +456,7 @@ contract Crowdsale is PallyCoin {
    /// @param weiPaid The amount of wei paid that will be used to buy tokens
    /// @param tierSelected The tier that you'll use for thir purchase
    /// @return tokensBought Returns how many tokens you've bought for that wei paid
-   function buyTokensTier(uint256 weiPaid, uint8 tierSelected) internal returns(uint256 tokensBought){
+   function buyTokensTier(uint256 weiPaid, uint256 tierSelected) internal returns(uint256 tokensBought){
       require(weiPaid > 0);
       require(tierSelected >= 1 && tierSelected <= 4);
 
