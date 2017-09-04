@@ -274,6 +274,8 @@ contract PausableToken is StandardToken, Pausable {
 /// @title The PallyCoin abstraction
 /// @author Merunas Grincalaitis
 contract PallyCoin is PausableToken {
+
+   // TODO Make sure this interface works
    function distributeICOTokens(address _buyer, uint amountOfTokens);
 }
 
@@ -291,16 +293,31 @@ contract Crowdsale is PallyCoin {
    PallyCoin public token;
 
    // The block number of when the crowdsale starts
-   uint256 public constant startTime = ;
+   // TODO Change this because it's a testing time
+   uint256 public constant startTime = 1504224000;
 
    // The block number of when the crowdsale ends
-   uint256 public constant endTime;
+   // 10/14/2017 @ 10:00pm (UTC)
+   uint256 public constant endTime = 1508018400;
 
    // The wallet that holds the Wei raised on the crowdsale
    address public wallet;
 
-   // The rate of tokens per ether
+   // The rate of tokens per ether. Only applied for the first tier, the first
+   // 12.5 million tokens sold
    uint256 public rate;
+
+   // The rate of tokens per ether. Only applied for the second tier, at between
+   // 12.5 million tokens sold and 25 million tokens sold
+   uint256 public rateTier2;
+
+   // The rate of tokens per ether. Only applied for the third tier, at between
+   // 25 million tokens sold and 37.5 million tokens sold
+   uint256 public rateTier3;
+
+   // The rate of tokens per ether. Only applied for the fourth tier, at between
+   // 37.5 million tokens sold and 50 million tokens sold
+   uint256 public rateTier4;
 
    // The amount of wei raised
    uint256 public weiRaised = 0;
@@ -338,19 +355,16 @@ contract Crowdsale is PallyCoin {
    /// @param _rate How much tokens you get per Wei
    /// @param _wallet The wallet that stores the Wei raised
    function Crowdsale(
-      uint256 _rate,
       address _wallet,
       uint256 _minPurchase,
       uint256 _maxPurchase,
       address _tokenAddress
    ) {
-      require(_rate > 0);
       require(_wallet != address(0));
       require(_maxPurchase > 0);
       require(_maxPurchase >= _minPurchase);
 
       token = PallyCoin(_tokenAddress);
-      rate = _rate;
       wallet = _wallet;
       minPurchase = _minPurchase;
       maxPurchase = _maxPurchase;
@@ -370,7 +384,21 @@ contract Crowdsale is PallyCoin {
       uint256 weiAmount = msg.value;
 
       // Calculate the amount of tokens that will be generated for that amount of Wei
-      uint256 tokens = weiAmount.mul(rate);
+      uint256 tokens;
+
+      // TODO Tiers
+      if(tokensRaised < 12500000) {
+
+         // Tier 1
+         tokens = weiAmount.mul(rate);
+      } else if(tokensRaised >= 12500000 && tokensRaised < 25000000) {
+         // Tier 2
+      } else if(tokensRaised >= 25000000 && tokensRaised < 37500000) {
+         // Tier 3
+      } else if(tokensRaised >= 37500000 && tokensRaised <= 50000000) {
+         // Tier 4
+      }
+
       weiRaised = weiRaised.add(weiAmount);
       tokensRaised = tokensRaised.add(tokens);
 
@@ -392,6 +420,22 @@ contract Crowdsale is PallyCoin {
          crowdsaleEnded = true;
          Finalized();
       }
+   }
+
+   /// @notice Set's the rate of tokens per ether for each tier. Use it after the
+   /// smart contract is deployed to set the price according to the ether price
+   /// at the start of the ICO
+   /// @param tier1 The amoun of tokens you get in the tier one
+   /// @param tier2 The amoun of tokens you get in the tier two
+   /// @param tier3 The amoun of tokens you get in the tier three
+   /// @param tier4 The amoun of tokens you get in the tier four
+   function setTierRates(uint256 tier1, uint256 tier2, uint256 tier3, uint256 tier4) onlyOwner {
+      require(tier1 > 0 && tier2 > 0 && tier3 > 0 && tier4 > 0);
+
+      rate = tier1;
+      rateTier2 = tier2;
+      rateTier3 = tier3;
+      rateTier4 = tier4;
    }
 
    /// @notice Checks if a purchase is considered valid
