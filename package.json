@@ -9,7 +9,8 @@
   "author": "Merunas Grincalaitis",
   "license": "ISC",
   "devDependencies": {
-    "truffle": "3.4.9"
+    "truffle": "3.4.9",
+    "zeppelin-solidity": "1.2.0"
   },
   "dependencies": {
     "truffle": "3.4.9"
