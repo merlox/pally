@@ -307,7 +307,7 @@ contract PallyCoin is PausableToken {
    /// @notice Function to set the crowdsale smart contract's address only by the owner of this token
    /// @param _crowdsale The address that will be used
    function setCrowdsaleAddress(address _crowdsale) onlyOwner whenNotPaused {
-      require(_crowdsale != address(0));
+      require(_crowdsale != address(0) && crowdsale == address(0));
 
       crowdsale = _crowdsale;
    }
@@ -392,7 +392,7 @@ contract Crowdsale is PallyCoin {
    uint256 public constant maxTokensRaised = 50000000;
 
    // The minimum amount of Wei you must pay to participate in the crowdsale
-   uint256 public minPurchase = 0.1 ether;
+   uint256 public minPurchase = 100 finney; // 0.1 ether
 
    // The max amount of Wei that you can pay to participate in the crowdsale
    uint256 public maxPurchase = 2000 ether;
@@ -437,53 +437,51 @@ contract Crowdsale is PallyCoin {
       require(beneficiary != address(0));
       require(validPurchase());
 
-      uint256 weiAmount = msg.value;
       uint256 tokens;
 
-      // TODO Tiers
       if(tokensRaised < 12500000) {
 
          // Tier 1
-         tokens = weiAmount.mul(rate);
+         tokens = msg.value.mul(rate).div(1e18);
 
          // If the amount of tokens that you want to buy gets out of this tier
-         if(tokensRaised.add(tokens) > 12500000)
-            tokens = buyExcessTokens(12500000, 1);
+         //if(tokensRaised.add(tokens) > 12500000)
+         //   tokens = buyExcessTokens(12500000, 1);
 
-      } else if(tokensRaised >= 12500000 && tokensRaised < 25000000) {
-
-         // Tier 2
-         tokens = weiAmount.mul(rateTier2);
-
-         // If the amount of tokens that you want to buy gets out of this tier
-         if(tokensRaised.add(tokens) > 25000000)
-            tokens = buyExcessTokens(25000000, 2);
-
-      } else if(tokensRaised >= 25000000 && tokensRaised < 37500000) {
-
-         // Tier 3
-         tokens = weiAmount.mul(rateTier3);
-
-         // If the amount of tokens that you want to buy gets out of this tier
-         if(tokensRaised.add(tokens) > 37500000)
-            tokens = buyExcessTokens(37500000, 3);
-
-      } else if(tokensRaised >= 37500000 && tokensRaised <= maxTokensRaised) {
-
-         // Tier 4
-         tokens = weiAmount.mul(rateTier4);
-
-         // If the amount of tokens that you want to buy gets out of this tier
-         if(tokensRaised.add(tokens) > maxTokensRaised)
-            tokens = buyExcessTokens(maxTokensRaised, 4);
-
-      }
-
-      weiRaised = weiRaised.add(weiAmount);
+      } // else if(tokensRaised >= 12500000 && tokensRaised < 25000000) {
+      //
+      //    // Tier 2
+      //    tokens = msg.value.mul(rateTier2);
+      //
+      //    // If the amount of tokens that you want to buy gets out of this tier
+      //    if(tokensRaised.add(tokens) > 25000000)
+      //       tokens = buyExcessTokens(25000000, 2);
+      //
+      // } else if(tokensRaised >= 25000000 && tokensRaised < 37500000) {
+      //
+      //    // Tier 3
+      //    tokens = msg.value.mul(rateTier3);
+      //
+      //    // If the amount of tokens that you want to buy gets out of this tier
+      //    if(tokensRaised.add(tokens) > 37500000)
+      //       tokens = buyExcessTokens(37500000, 3);
+      //
+      // } else if(tokensRaised >= 37500000 && tokensRaised <= maxTokensRaised) {
+      //
+      //    // Tier 4
+      //    tokens = msg.value.mul(rateTier4);
+      //
+      //    // If the amount of tokens that you want to buy gets out of this tier
+      //    if(tokensRaised.add(tokens) > maxTokensRaised)
+      //       tokens = buyExcessTokens(maxTokensRaised, 4);
+      //
+      // }
+      //
+      weiRaised = weiRaised.add(msg.value);
       tokensRaised = tokensRaised.add(tokens);
 
       token.distributeICOTokens(beneficiary, tokens);
-      TokenPurchase(msg.sender, beneficiary, weiAmount, tokens);
+      TokenPurchase(msg.sender, beneficiary, msg.value, tokens);
 
       forwardFunds();
       checkEndedCrowdsale();
@@ -494,13 +492,12 @@ contract Crowdsale is PallyCoin {
    /// @param tierSelected The tier selected
    /// @return uint The total amount of tokens bought combining the tier prices
    function buyExcessTokens(uint256 tokensLimit, uint256 tierSelected) internal returns(uint256){
-      uint256 weiAmount = msg.value;
-      uint256 tokens = weiAmount.mul(rate);
+      uint256 tokens = msg.value.mul(rate);
 
       // Calculate how many tokens there are of this tier
       uint tokensOfThisTier = tokens.sub((tokensRaised.add(tokens)).sub(tokensLimit));
-      uint weiAmountOfThisTier = (tokensOfThisTier.mul(weiAmount)).div(tokens);
-      uint weiForNextTier = weiAmount.sub(weiAmountOfThisTier);
+      uint weiAmountOfThisTier = (tokensOfThisTier.mul(msg.value)).div(tokens);
+      uint weiForNextTier = msg.value.sub(weiAmountOfThisTier);
 
       uint tokensThis = buyTokensTier(weiAmountOfThisTier, tierSelected);
       uint tokensNext = 0;
@@ -566,9 +563,10 @@ contract Crowdsale is PallyCoin {
    function validPurchase() internal constant returns(bool) {
       bool withinPeriod = now >= startTime && now <= endTime;
       bool nonZeroPurchase = msg.value > 0;
-      bool withinTokenLimit = tokensRaised.add(msg.value) <= maxTokensRaised;
+      bool withinPurchaseRanges = msg.value >= minPurchase && msg.value <= maxPurchase;
+      bool withinTokenLimit = tokensRaised < maxTokensRaised;
 
-      return withinPeriod && nonZeroPurchase && withinTokenLimit;
+      return withinPeriod && nonZeroPurchase && withinPurchaseRanges && withinTokenLimit;
    }
 
    /// @notice Public function to check if the crowdsale has ended or not

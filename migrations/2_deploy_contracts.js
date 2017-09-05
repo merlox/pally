@@ -1,8 +1,20 @@
-var ConvertLib = artifacts.require("./ConvertLib.sol");
-var MetaCoin = artifacts.require("./MetaCoin.sol");
+var PallyCoin = artifacts.require("./PallyCoin.sol");
+var Crowdsale = artifacts.require("./Crowdsale.sol");
 
-module.exports = function(deployer) {
-  deployer.deploy(ConvertLib);
-  deployer.link(ConvertLib, MetaCoin);
-  deployer.deploy(MetaCoin);
-};
+module.exports = function(deployer, network) {
+   if(network != 'live'){
+
+      console.log('Deploying contracts...')
+
+      // Deploy the token
+      deployer.then(() => {
+         return PallyCoin.new()
+      }).then(tokenInstance => {
+         return deployer.deploy(
+            Crowdsale,
+            web3.eth.accounts[0],
+            tokenInstance.address
+         )
+      })
+   }
+}

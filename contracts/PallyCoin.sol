@@ -307,7 +307,7 @@ contract PallyCoin is PausableToken {
    /// @notice Function to set the crowdsale smart contract's address only by the owner of this token
    /// @param _crowdsale The address that will be used
    function setCrowdsaleAddress(address _crowdsale) onlyOwner whenNotPaused {
-      require(_crowdsale != address(0));
+      require(_crowdsale != address(0) && crowdsale == address(0));
 
       crowdsale = _crowdsale;
    }
