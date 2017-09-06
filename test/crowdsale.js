@@ -4,12 +4,23 @@ const Crowdsale = artifacts.require('Crowdsale')
 let tokenInstance = {}
 let crowdsaleInstance = {}
 
+function getTokens(weiAmount, rate) {
+   return weiAmount * rate / 1e18
+}
+
 /**
  * 1. Set the crowdsale address for the token instance
  * 2. Set the tier rates for the crowdsale instance
  * 3. Use it.
  */
 contract('Crowdsale', accounts => {
+
+   // It'll be used accross several functions
+   const rateTier1 = 5000
+   const rateTier2 = 4000
+   const rateTier3 = 3000
+   const rateTier4 = 2000
+
    before(cb => {
       console.log('Preparing contracts for the tests...')
 
@@ -31,26 +42,33 @@ contract('Crowdsale', accounts => {
       assert.equal(crowdsaleInstance.token(), tokenAddress, "Token address isn't correct")
    })
 
-   it("Should calculate the excess tokens correctly with the proper rates, buy 3000 ether returning 14.5M instead of 15M", cb => {
-      const amountToBuy = web3.toWei(3000, 'ether')
-      const rateTier1 = 5000
-      const rateTier2 = 4000
-      const expectedTokens = (web3.toWei(2500, 'ether') * rateTier1 / 1e18) + (web3.toWei(500, 'ether') * rateTier2 / 1e18)
-
-      crowdsaleInstance.setTierRates(rateTier1, rateTier2, rateTier2, rateTier2, {
+   it("Should set the tier rates of the crowdsale instance correctly", cb => {
+      crowdsaleInstance.setTierRates(rateTier1, rateTier2, rateTier3, rateTier4, {
          from: web3.eth.accounts[0],
          gas: 3000000
       }, (err, result) => {
-
-         // Set timeout required to have time to mine the transaction on testrpc
          setTimeout(() => {
-            crowdsaleInstance.calculateExcessTokens(amountToBuy, 12500000, 1, rateTier1, {
-               from: web3.eth.accounts[0],
-               gas: 4000000
-            }, (err, totalTokens) => {
-               assert.equal(totalTokens.toString(), expectedTokens, "The tokens received aren't correct")
+            crowdsaleInstance.rate((err, rate1) => {
+               rate1 = parseInt(rate1)
 
-               cb()
+               crowdsaleInstance.rateTier2((err, rate2) => {
+                  rate2 = parseInt(rate2)
+
+                  crowdsaleInstance.rateTier3((err, rate3) => {
+                     rate3 = parseInt(rate3)
+
+                     crowdsaleInstance.rateTier4((err, rate4) => {
+                        rate4 = parseInt(rate4)
+
+                        assert.equal(rate1, rateTier1, 'The rate 1 is not correctly set')
+                        assert.equal(rate2, rateTier2, 'The rate 2 is not correctly set')
+                        assert.equal(rate3, rateTier3, 'The rate 3 is not correctly set')
+                        assert.equal(rate4, rateTier4, 'The rate 4 is not correctly set')
+
+                        cb()
+                     })
+                  })
+               })
             })
          }, 2e3)
       })
@@ -58,41 +76,51 @@ contract('Crowdsale', accounts => {
 
    it("Should buy 10 million tokens for 2000 ether at rate 5000 with the buyTokens function", cb => {
       const amountToBuy = web3.toWei(2000, 'ether')
-      const rate = 5000
-      const expectedTokens = amountToBuy * rate / 1e18
+      const expectedTokens = amountToBuy * rateTier1 / 1e18
       let initialTokenBalance
 
       web3.eth.getBalance(web3.eth.accounts[0], (err, balance) => {
          assert.equal(true, balance > amountToBuy, `You don\'t have the balance to buy ${web3.fromWei(amountToBuy, 'ether')} ethers`)
 
-         crowdsaleInstance.setTierRates(rate, rate, rate, rate, {
-            from: web3.eth.accounts[0],
-            gas: 3000000
-         }, (err, result) => {
-            tokenInstance.balanceOf(web3.eth.accounts[0], (err, myBalance) => {
-               initialTokenBalance = parseInt(myBalance)
+         tokenInstance.balanceOf(web3.eth.accounts[0], (err, myBalance) => {
+            initialTokenBalance = parseInt(myBalance)
 
-               crowdsaleInstance.buyTokens(web3.eth.accounts[0], {
-                  from: web3.eth.accounts[0],
-                  gas: 4000000,
-                  value: amountToBuy
-               }, (err, transaction) => {
-                  setTimeout(() => {
-                     tokenInstance.balanceOf(web3.eth.accounts[0], (err, myBalance) => {
-                        crowdsaleInstance.tokensRaised((err, tokens) => {
-                           console.log('Tokens raised -->')
-                           console.log(tokens.toString())
+            crowdsaleInstance.buyTokens(web3.eth.accounts[0], {
+               from: web3.eth.accounts[0],
+               gas: 4000000,
+               value: amountToBuy
+            }, (err, transaction) => {
+               setTimeout(() => {
+                  tokenInstance.balanceOf(web3.eth.accounts[0], (err, myBalance) => {
+                     crowdsaleInstance.tokensRaised((err, tokens) => {
+                        console.log('Tokens raised --> ' + tokens.toString())
 
-                           assert.equal(tokens.toString(), expectedTokens, 'The tokens raised are not correct')
-                           assert.equal(initialTokenBalance + expectedTokens, parseInt(myBalance), 'The balance is not correct after buying tokens')
+                        assert.equal(tokens.toString(), expectedTokens, 'The tokens raised are not correct')
+                        assert.equal(initialTokenBalance + expectedTokens, parseInt(myBalance), 'The balance is not correct after buying tokens')
 
-                           cb()
-                        })
+                        cb()
                      })
-                  }, 5e3)
-               })
+                  })
+               }, 5e3)
             })
          })
+      })
+   })
+
+   // The order of the tests is important because this one assumes that there's
+   // already 10 million tokens raised in order to test correctly
+   it("Should calculate the excess tokens correctly with the proper rates, buy 1000 ether + 2000 past ether returning 14.5M instead of 15M", cb => {
+      const amountToBuy = web3.toWei(1000, 'ether')
+      const expectedTokens = getTokens(web3.toWei(2500, 'ether'), rateTier1) + getTokens(web3.toWei(500, 'ether'), rateTier2)
+
+      crowdsaleInstance.calculateExcessTokens(amountToBuy, 12500000, 1, rateTier1, {
+         from: web3.eth.accounts[0],
+         gas: 4000000
+      }, (err, secondPurchaseTokens) => {
+         secondPurchaseTokens = parseInt(secondPurchaseTokens)
+         assert.equal(getTokens(web3.toWei(2000, 'ether'), 5000) + secondPurchaseTokens, expectedTokens, "The tokens received aren't correct")
+
+         cb()
       })
    })
 
@@ -100,9 +128,8 @@ contract('Crowdsale', accounts => {
 
       // You can't buy more than 2000 ether as defined by maxPurchase so we split it
       const amountToBuy = web3.toWei(1000, 'ether')
-      const rateTier1 = 5000
-      const rateTier2 = 4000
       const expectedTokens = (web3.toWei(2500, 'ether') * rateTier1 / 1e18) + (web3.toWei(500, 'ether') * rateTier2 / 1e18)
+      const tokensToBuy = 4.5e6
       let initialTokenBalance
 
       // 2500 at tier 1 rate 5000 = 12.5 Million tokens
@@ -111,42 +138,169 @@ contract('Crowdsale', accounts => {
       web3.eth.getBalance(web3.eth.accounts[0], (err, balance) => {
          assert.equal(true, balance > amountToBuy, `You don\'t have the balance to buy ${web3.fromWei(amountToBuy, 'ether')} ethers`)
 
-         crowdsaleInstance.setTierRates(rateTier1, rateTier2, rateTier2, rateTier2, {
-            from: web3.eth.accounts[0],
-            gas: 3000000
-         }, (err, result) => {
-            tokenInstance.balanceOf(web3.eth.accounts[0], (err, myBalance) => {
-               initialTokenBalance = parseInt(myBalance)
+         tokenInstance.balanceOf(web3.eth.accounts[0], (err, myBalance) => {
+            initialTokenBalance = parseInt(myBalance)
 
-               crowdsaleInstance.buyTokens(web3.eth.accounts[0], {
-                  from: web3.eth.accounts[0],
-                  gas: 4500000,
-                  value: amountToBuy
-               }, (err, transaction) => {
+            console.log('Initial token balance ' + parseInt(myBalance))
 
-                  // Set timeout required to have time to mine the transaction
-                  setTimeout(() => {
-                     tokenInstance.balanceOf(web3.eth.accounts[0], (err, myBalance) => {
-                        crowdsaleInstance.tokensRaised((err, tokens) => {
-                           console.log('Tokens raised -->')
-                           console.log(tokens.toString())
+            crowdsaleInstance.buyTokens(web3.eth.accounts[0], {
+               from: web3.eth.accounts[0],
+               gas: 4500000,
+               value: amountToBuy
+            }, (err, transaction) => {
 
-                           assert.equal(tokens.toString(), expectedTokens, 'The tokens raised are not correct')
-                           assert.equal(initialTokenBalance + expectedTokens, parseInt(myBalance), 'The balance is not correct after buying tokens')
+               // Set timeout required to have time to mine the transaction
+               setTimeout(() => {
+                  tokenInstance.balanceOf(web3.eth.accounts[0], (err, myBalance) => {
+                     crowdsaleInstance.tokensRaised((err, tokens) => {
+                        console.log('Tokens raised --> ' + tokens.toString())
+                        console.log('Final token balance ' + parseInt(myBalance))
 
-                           cb()
-                        })
+                        assert.equal(tokens.toString(), expectedTokens, 'The tokens raised are not correct')
+                        assert.equal(initialTokenBalance + tokensToBuy, parseInt(myBalance), 'The balance is not correct after buying tokens')
+
+                        cb()
                      })
-                  }, 2e3)
-               })
+                  })
+               }, 2e3)
             })
          })
       })
    })
 
-   it("Should not allow you to buy more than 2000 ether, maxPurchase")
+   it("Should buy 34 million tokens for an additional 2000 + 2000 ether (including the past test tokens) at rate 5000 tier 1, 4000 tier 2 and 3000 tier 3 with the buyTokens function", cb => {
 
-   it("Should not allow you to buy less than 0.1 ether, minPurchase")
+      // You can't buy more than 2000 ether as defined by maxPurchase so we split it
+      const amountToBuy = web3.toWei(2000, 'ether')
+      const amountToBuy2 = web3.toWei(2000, 'ether')
+      const amountToBuy3 = web3.toWei(1625, 'ether')
+      const tokensToBuy = 19.5e6
+      const expectedTokens =
+         (web3.toWei(2500, 'ether') * rateTier1 / 1e18) + // Past purchase of tokens
+         (web3.toWei(500, 'ether') * rateTier2 / 1e18) + // Past purchase of tokens 14.5M
+         (web3.toWei(2625, 'ether') * rateTier2 / 1e18) +
+         (web3.toWei(3000, 'ether') * rateTier3 / 1e18)
+
+      // 14.5M at rate1 + rate2
+      // + 10.5M at rate2 = 2625 ether
+      // + 9M at rate3 = 3000 ether
+      let initialTokenBalance
+
+      web3.eth.getBalance(web3.eth.accounts[0], (err, balance) => {
+         assert.equal(true, balance > amountToBuy, `You don\'t have the balance to buy ${web3.fromWei(amountToBuy, 'ether')} ethers`)
+
+         tokenInstance.balanceOf(web3.eth.accounts[0], (err, myBalance) => {
+            initialTokenBalance = parseInt(myBalance)
+
+            console.log('Initial token balance ' + parseInt(myBalance))
+
+            crowdsaleInstance.buyTokens(web3.eth.accounts[0], {
+               from: web3.eth.accounts[0],
+               gas: 4500000,
+               value: amountToBuy
+            }, (err, transaction) => {
+
+               setTimeout(() => {
+                  crowdsaleInstance.buyTokens(web3.eth.accounts[0], {
+                     from: web3.eth.accounts[0],
+                     gas: 4500000,
+                     value: amountToBuy3
+                  }, (err, transaction) => {
+
+                     setTimeout(() => {
+                        crowdsaleInstance.buyTokens(web3.eth.accounts[0], {
+                           from: web3.eth.accounts[0],
+                           gas: 4500000,
+                           value: amountToBuy2
+                        }, (err, transaction) => {
+
+                           setTimeout(() => {
+                              tokenInstance.balanceOf(web3.eth.accounts[0], (err, myBalance) => {
+                                 crowdsaleInstance.tokensRaised((err, tokens) => {
+                                    console.log('Tokens raised --> ' + tokens.toString())
+                                    console.log('Final token balance ' + parseInt(myBalance))
+
+                                    assert.equal(tokens.toString(), expectedTokens, 'The tokens raised are not correct')
+                                    assert.equal(initialTokenBalance + tokensToBuy, parseInt(myBalance), 'The balance is not correct after buying tokens')
+
+                                    cb()
+                                 })
+                              })
+                           }, 2e3)
+                        })
+                     }, 2e3)
+                  })
+               }, 2e3)
+            })
+         })
+      })
+   })
+
+   // Checking that the balanceOf stays the same because the transaction was reverted
+   it("Should not allow you to buy 3000 ether, more than the maxPurchase of 2000 ether", cb => {
+      const amountToBuy = web3.toWei(3000, 'ether')
+
+      web3.eth.getBalance(web3.eth.accounts[0], (err, balance) => {
+         assert.equal(true, balance > amountToBuy, `You don\'t have the balance to buy ${web3.fromWei(amountToBuy, 'ether')} ethers`)
+
+         tokenInstance.balanceOf(web3.eth.accounts[0], (err, myBalance) => {
+            const initialTokenBalance = parseInt(myBalance)
+
+            console.log('Initial token balance ' + parseInt(myBalance))
+
+            crowdsaleInstance.buyTokens(web3.eth.accounts[0], {
+               from: web3.eth.accounts[0],
+               gas: 4500000,
+               value: amountToBuy
+            }, (err, transaction) => {
+
+               // Set timeout required to have time to mine the transaction
+               setTimeout(() => {
+                  tokenInstance.balanceOf(web3.eth.accounts[0], (err, myBalance) => {
+                     console.log('Final token balance ' + parseInt(myBalance))
+
+                     assert.equal(initialTokenBalance, parseInt(myBalance), 'The balance is not correct after buying tokens')
+
+                     cb()
+                  })
+               }, 2e3)
+            })
+         })
+      })
+   })
+
+   // Checking that the balanceOf stays the same because the transaction was reverted
+   it("Should not allow you to buy less than 0.1 ether, minPurchase", cb => {
+      const amountToBuy = web3.toWei(0.001, 'ether')
+
+      web3.eth.getBalance(web3.eth.accounts[0], (err, balance) => {
+         assert.equal(true, balance > amountToBuy, `You don\'t have the balance to buy ${web3.fromWei(amountToBuy, 'ether')} ethers`)
+
+         tokenInstance.balanceOf(web3.eth.accounts[0], (err, myBalance) => {
+            const initialTokenBalance = parseInt(myBalance)
+
+            console.log('Initial token balance ' + parseInt(myBalance))
+
+            crowdsaleInstance.buyTokens(web3.eth.accounts[0], {
+               from: web3.eth.accounts[0],
+               gas: 4500000,
+               value: amountToBuy
+            }, (err, transaction) => {
+
+               // Set timeout required to have time to mine the transaction
+               setTimeout(() => {
+                  tokenInstance.balanceOf(web3.eth.accounts[0], (err, myBalance) => {
+                     console.log('Final token balance ' + parseInt(myBalance))
+
+                     assert.equal(initialTokenBalance, parseInt(myBalance), 'The balance is not correct after buying tokens')
+
+                     cb()
+                  })
+               }, 2e3)
+            })
+         })
+      })
+   })
 
    it("Should check if the crowdsale has ended or not", cb => {
       crowdsaleInstance.hasEnded((err, hasEnded) => {

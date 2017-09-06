@@ -1,4 +1,4 @@
-pragma solidity ^0.4.15;
+pragma solidity 0.4.15;
 
 /**
  * @title SafeMath
@@ -306,7 +306,7 @@ contract PallyCoin is PausableToken {
 
    /// @notice Function to set the crowdsale smart contract's address only by the owner of this token
    /// @param _crowdsale The address that will be used
-   function setCrowdsaleAddress(address _crowdsale) onlyOwner whenNotPaused {
+   function setCrowdsaleAddress(address _crowdsale) external onlyOwner whenNotPaused {
       require(_crowdsale != address(0));
 
       crowdsale = _crowdsale;
@@ -314,29 +314,29 @@ contract PallyCoin is PausableToken {
 
    /// @notice Distributes the presale tokens. Only the owner can do this
    /// @param _buyer The address of the buyer
-   /// @param amountOfTokens The amount of tokens corresponding to that buyer
-   function distributePresaleTokens(address _buyer, uint amountOfTokens) onlyOwner whenNotPaused {
+   /// @param tokens The amount of tokens corresponding to that buyer
+   function distributePresaleTokens(address _buyer, uint tokens) external onlyOwner whenNotPaused {
       require(_buyer != address(0));
-      require(amountOfTokens > 0);
+      require(tokens > 0);
 
       // Check that the limit of 10M presale tokens hasn't been met yet
-      require(tokensDistributedPresale <= 10000000);
+      require(tokensDistributedPresale < 10000000);
 
-      balances[_buyer] = balances[_buyer].add(amountOfTokens);
-      tokensDistributedPresale = tokensDistributedPresale.add(amountOfTokens);
+      tokensDistributedPresale = tokensDistributedPresale.add(tokens);
+      balances[_buyer] = balances[_buyer].add(tokens);
    }
 
    /// @notice Distributes the ICO tokens. Only the crowdsale address can execute this
    /// @param _buyer The buyer address
-   /// @param amountOfTokens The amount of tokens to send to that address
-   function distributeICOTokens(address _buyer, uint amountOfTokens) onlyCrowdsale whenNotPaused {
+   /// @param tokens The amount of tokens to send to that address
+   function distributeICOTokens(address _buyer, uint tokens) external onlyCrowdsale whenNotPaused {
       require(_buyer != address(0));
-      require(amountOfTokens > 0);
+      require(tokens > 0);
 
       // Check that the limit of 50M ICO tokens hasn't been met yet
-      require(tokensDistributedCrowdsale <= 50000000);
+      require(tokensDistributedCrowdsale < 50000000);
 
-      balances[_buyer] = balances[_buyer].add(amountOfTokens);
-      tokensDistributedCrowdsale = tokensDistributedCrowdsale.add(amountOfTokens);
+      tokensDistributedCrowdsale = tokensDistributedCrowdsale.add(tokens);
+      balances[_buyer] = balances[_buyer].add(tokens);
    }
 }

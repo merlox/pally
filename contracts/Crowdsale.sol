@@ -1,4 +1,4 @@
-pragma solidity ^0.4.15;
+pragma solidity 0.4.15;
 
 /**
  * @title SafeMath
@@ -314,30 +314,30 @@ contract PallyCoin is PausableToken {
 
    /// @notice Distributes the presale tokens. Only the owner can do this
    /// @param _buyer The address of the buyer
-   /// @param amountOfTokens The amount of tokens corresponding to that buyer
-   function distributePresaleTokens(address _buyer, uint amountOfTokens) onlyOwner whenNotPaused {
+   /// @param tokens The amount of tokens corresponding to that buyer
+   function distributePresaleTokens(address _buyer, uint tokens) onlyOwner whenNotPaused {
       require(_buyer != address(0));
-      require(amountOfTokens > 0);
+      require(tokens > 0);
 
       // Check that the limit of 10M presale tokens hasn't been met yet
-      require(tokensDistributedPresale <= 10000000);
+      require(tokensDistributedPresale < 10000000);
 
-      balances[_buyer] = balances[_buyer].add(amountOfTokens);
-      tokensDistributedPresale = tokensDistributedPresale.add(amountOfTokens);
+      tokensDistributedPresale = tokensDistributedPresale.add(tokens);
+      balances[_buyer] = balances[_buyer].add(tokens);
    }
 
    /// @notice Distributes the ICO tokens. Only the crowdsale address can execute this
    /// @param _buyer The buyer address
-   /// @param amountOfTokens The amount of tokens to send to that address
-   function distributeICOTokens(address _buyer, uint amountOfTokens) onlyCrowdsale whenNotPaused {
+   /// @param tokens The amount of tokens to send to that address
+   function distributeICOTokens(address _buyer, uint tokens) onlyCrowdsale whenNotPaused {
       require(_buyer != address(0));
-      require(amountOfTokens > 0);
+      require(tokens > 0);
 
       // Check that the limit of 50M ICO tokens hasn't been met yet
-      require(tokensDistributedCrowdsale <= 50000000);
+      require(tokensDistributedCrowdsale < 50000000);
 
-      balances[_buyer] = balances[_buyer].add(amountOfTokens);
-      tokensDistributedCrowdsale = tokensDistributedCrowdsale.add(amountOfTokens);
+      tokensDistributedCrowdsale = tokensDistributedCrowdsale.add(tokens);
+      balances[_buyer] = balances[_buyer].add(tokens);
    }
 }
 
@@ -407,12 +407,14 @@ contract Crowdsale is PallyCoin {
    event Finalized();
 
    /// @notice Constructor of the crowsale to set up the main variables and create a token
+   /// The constructor need ether to be able to distribute the tokens by calling the PallyCoin
+   /// token smart contract
    /// @param _wallet The wallet address that stores the Wei raised
    /// @param _tokenAddress The token used for the ICO
    function Crowdsale(
       address _wallet,
       address _tokenAddress
-   ) {
+   ) payable {
       require(_wallet != address(0));
       require(_tokenAddress != address(0));
 
@@ -431,7 +433,7 @@ contract Crowdsale is PallyCoin {
       require(beneficiary != address(0));
       require(validPurchase());
 
-      uint256 tokens;
+      uint256 tokens = 0;
 
       if(tokensRaised < 12500000) {
 
@@ -441,44 +443,38 @@ contract Crowdsale is PallyCoin {
          // If the amount of tokens that you want to buy gets out of this tier
          if(tokensRaised.add(tokens) > 12500000)
             tokens = calculateExcessTokens(msg.value, 12500000, 1, rate);
-         else
-            tokens = tokensRaised.add(msg.value.mul(rate).div(1e18));
-      } // else if(tokensRaised >= 12500000 && tokensRaised < 25000000) {
-      //
-      //    // Tier 2
-      //    tokens = msg.value.mul(rateTier2);
-      //
-      //    // If the amount of tokens that you want to buy gets out of this tier
-      //    if(tokensRaised.add(tokens) > 25000000)
-      //       tokens = calculateExcessTokens(msg.value, 25000000, 2, rateTier2);
-      //
-      // } else if(tokensRaised >= 25000000 && tokensRaised < 37500000) {
-      //
-      //    // Tier 3
-      //    tokens = msg.value.mul(rateTier3);
-      //
-      //    // If the amount of tokens that you want to buy gets out of this tier
-      //    if(tokensRaised.add(tokens) > 37500000)
-      //       tokens = calculateExcessTokens(msg.value, 37500000, 3, rateTier3);
-      //
-      // } else if(tokensRaised >= 37500000 && tokensRaised <= maxTokensRaised) {
-      //
-      //    // Tier 4
-      //    tokens = msg.value.mul(rateTier4);
-      //
-      //    // If the amount of tokens that you want to buy gets out of this tier
-      //    if(tokensRaised.add(tokens) > maxTokensRaised)
-      //       tokens = calculateExcessTokens(msg.value, maxTokensRaised, 4, rateTier4);
-      //
-      // }
-      //
-      weiRaised = weiRaised.add(msg.value);
-      tokensRaised = tokens;
+      } else if(tokensRaised >= 12500000 && tokensRaised < 25000000) {
 
+         // Tier 2
+         tokens = msg.value.mul(rateTier2).div(1e18);
+
+         // If the amount of tokens that you want to buy gets out of this tier
+         if(tokensRaised.add(tokens) > 25000000)
+            tokens = calculateExcessTokens(msg.value, 25000000, 2, rateTier2);
+      } else if(tokensRaised >= 25000000 && tokensRaised < 37500000) {
+
+         // Tier 3
+         tokens = msg.value.mul(rateTier3).div(1e18);
+
+         // If the amount of tokens that you want to buy gets out of this tier
+         if(tokensRaised.add(tokens) > 37500000)
+            tokens = calculateExcessTokens(msg.value, 37500000, 3, rateTier3);
+      } else if(tokensRaised >= 37500000 && tokensRaised <= maxTokensRaised) {
+
+         // Tier 4
+         tokens = msg.value.mul(rateTier4).div(1e18);
+
+         // If the amount of tokens that you want to buy gets out of this tier
+         if(tokensRaised.add(tokens) > maxTokensRaised)
+            tokens = calculateExcessTokens(msg.value, maxTokensRaised, 4, rateTier4);
+      }
+
+      weiRaised = weiRaised.add(msg.value);
+      tokensRaised = tokensRaised.add(tokens);
       token.distributeICOTokens(beneficiary, tokens);
       TokenPurchase(msg.sender, beneficiary, msg.value, tokens);
 
-      forwardFunds();
+      wallet.transfer(msg.value);
    }
 
    /// @notice Buys the tokens for the specified tier and for the next one
@@ -492,7 +488,7 @@ contract Crowdsale is PallyCoin {
       uint256 tokensThisTier,
       uint256 tierSelected,
       uint256 _rate
-   ) constant returns(uint256 totalTokens) {
+   ) public constant returns(uint256 totalTokens) {
       uint weiThisTier = tokensThisTier.sub(tokensRaised).mul(1e18).div(_rate);
       uint weiNextTier = amount.sub(weiThisTier);
       uint tokensNextTier;
@@ -503,14 +499,14 @@ contract Crowdsale is PallyCoin {
       else
          tokensNextTier = calculateTokensTier(weiNextTier, tierSelected.add(1));
 
-      totalTokens = tokensThisTier.add(tokensNextTier);
+      totalTokens = tokensThisTier.sub(tokensRaised).add(tokensNextTier);
    }
 
    /// @notice Buys the tokens given the price of the tier one and the wei paid
    /// @param weiPaid The amount of wei paid that will be used to buy tokens
    /// @param tierSelected The tier that you'll use for thir purchase
    /// @return tokensBought Returns how many tokens you've bought for that wei paid
-   function calculateTokensTier(uint256 weiPaid, uint256 tierSelected) constant internal returns(uint256 tokensBought){
+   function calculateTokensTier(uint256 weiPaid, uint256 tierSelected) internal constant returns(uint256 tokensBought){
       require(weiPaid > 0);
       require(tierSelected >= 1 && tierSelected <= 4);
 
@@ -524,11 +520,6 @@ contract Crowdsale is PallyCoin {
          tokensBought = weiPaid.mul(rateTier4).div(1e18);
    }
 
-   /// @notice Sends the payment from the buyer to the crowdsale wallet
-   function forwardFunds() internal {
-      wallet.transfer(msg.value);
-   }
-
    /// @notice Set's the rate of tokens per ether for each tier. Use it after the
    /// smart contract is deployed to set the price according to the ether price
    /// at the start of the ICO
@@ -536,7 +527,7 @@ contract Crowdsale is PallyCoin {
    /// @param tier2 The amount of tokens you get in the tier two
    /// @param tier3 The amount of tokens you get in the tier three
    /// @param tier4 The amount of tokens you get in the tier four
-   function setTierRates(uint256 tier1, uint256 tier2, uint256 tier3, uint256 tier4) onlyOwner {
+   function setTierRates(uint256 tier1, uint256 tier2, uint256 tier3, uint256 tier4) external onlyOwner {
       require(tier1 > 0 && tier2 > 0 && tier3 > 0 && tier4 > 0);
 
       rate = tier1;
