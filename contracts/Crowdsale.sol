@@ -342,17 +342,88 @@ contract PallyCoin is PausableToken {
 }
 
 
+/**
+ * @title RefundVault
+ * @dev This contract is used for storing funds while a crowdsale
+ * is in progress. Supports refunding the money if crowdsale fails,
+ * and forwarding it if crowdsale is successful.
+ */
+contract RefundVault is Ownable {
+  using SafeMath for uint256;
+
+  address public wallet;
+  address public crowdsale;
+  State public state;
+
+  enum State { Active, Refunding, Closed }
+
+  mapping (address => uint256) public deposited;
+
+  event RefundsEnabled();
+  event Refunded(address indexed beneficiary, uint256 weiAmount);
+
+  modifier onlyCrowdsale() {
+      require(msg.sender == crowdsale);
+      _;
+  }
+
+  function RefundVault(address _wallet) {
+    require(_wallet != 0x0);
+
+    wallet = _wallet;
+    crowdsale = msg.sender;
+    state = State.Active;
+  }
+
+  function deposit(address investor) payable onlyCrowdsale {
+    require(state == State.Active);
+
+    deposited[investor] = deposited[investor].add(msg.value);
+  }
+
+  function close() onlyCrowdsale {
+    require(state == State.Active);
+
+    state = State.Closed;
+    wallet.transfer(this.balance);
+  }
+
+  function enableRefunds() onlyCrowdsale {
+    require(state == State.Active);
+
+    state = State.Refunding;
+    RefundsEnabled();
+  }
+
+  function refund(address investor) {
+    require(state == State.Refunding);
+
+    uint256 depositedValue = deposited[investor];
+    deposited[investor] = 0;
+    investor.transfer(depositedValue);
+    Refunded(investor, depositedValue);
+  }
+}
+
+// 1. First you set the address of the wallet in the RefundVault contract that will store the deposit of ether
+// 2. If the goal is reached, the state of the vault will change and the ether will be sent to the address
+// 3. If the goal is not reached after 28 days, the state of the vault will change to refunding and the users will be able to call claimRefund() to get their ether
+// 4. You have to enable refunds manually by the owner
+
 /// @title Crowdsale contract to carry out an ICO with the PallyCoin
 /// Crowdsales have a start and end timestamps, where investors can make
 /// token purchases and the crowdsale will assign them tokens based
 /// on a token per ETH rate. Funds collected are forwarded to a wallet
 /// as they arrive.
 /// @author Merunas Grincalaitis <merunasgrincalaitis@gmail.com>
-contract Crowdsale is PallyCoin {
+contract Crowdsale is PallyCoin, RefundVault {
    using SafeMath for uint256;
 
    // The token being sold
    PallyCoin public token;
+
+   // The vault that will store the ether until the goal is reached
+   RefundVault public vault;
 
    // The block number of when the crowdsale starts
    // TODO Change this because it's a testing time
@@ -400,6 +471,10 @@ contract Crowdsale is PallyCoin {
    // If the crowdsale is still active or if it's ended
    bool public crowdsaleEnded = false;
 
+   // Minimum amount of tokens to be raised. 7.5 million tokens which is the 15%
+   // of the total of 50 million tokens sold in the crowdsale
+   uint256 public minimumGoal = 7500000;
+
    // To indicate who purchased what amount of tokens and who received what amount of wei
    event TokenPurchase(address indexed purchaser, address indexed beneficiary, uint256 value, uint256 amount);
 
@@ -418,8 +493,9 @@ contract Crowdsale is PallyCoin {
       require(_wallet != address(0));
       require(_tokenAddress != address(0));
 
-      token = PallyCoin(_tokenAddress);
       wallet = _wallet;
+      token = PallyCoin(_tokenAddress);
+      vault = new RefundVault(_wallet);
    }
 
    /// @notice Fallback function to buy tokens
@@ -474,7 +550,21 @@ contract Crowdsale is PallyCoin {
       token.distributeICOTokens(beneficiary, tokens);
       TokenPurchase(msg.sender, beneficiary, msg.value, tokens);
 
-      wallet.transfer(msg.value);
+      forwardFunds();
+   }
+
+   /// @notice Sends the funds to the wallet or to the refund vault smart contract
+   /// if the minimum goal of tokens hasn't been reached yet
+   function forwardFunds() internal {
+      if(tokensRaised < minimumGoal) {
+         vault.deposit.value(msg.value)(msg.sender);
+      } else {
+         wallet.transfer(msg.value);
+      }
+
+      // If the minimum goal of the ICO has been reach, close the vault to send
+      // the ether to the wallet of the crowdsale
+      checkCompletedCrowdsale();
    }
 
    /// @notice Buys the tokens for the specified tier and for the next one
@@ -536,6 +626,26 @@ contract Crowdsale is PallyCoin {
       rateTier4 = tier4;
    }
 
+   /// @notice Check if the crowdsale has ended and enables refunds only in case the
+   /// goal hasn't been reached
+   function checkCompletedCrowdsale() {
+      if(hasEnded() && !goalReached()){
+         vault.enableRefunds();
+         Finalized();
+      } else if(hasEnded() && goalReached()) {
+         vault.close();
+         Finalized();
+      }
+   }
+
+   /// @notice If crowdsale is unsuccessful, investors can claim refunds here
+   function claimRefund() {
+     require(hasEnded());
+     require(!goalReached());
+
+     vault.refund(msg.sender);
+   }
+
    /// @notice Checks if a purchase is considered valid
    /// @return bool If the purchase is valid or not
    function validPurchase() internal constant returns(bool) {
@@ -545,6 +655,12 @@ contract Crowdsale is PallyCoin {
       bool withinTokenLimit = tokensRaised < maxTokensRaised;
 
       return withinPeriod && nonZeroPurchase && withinPurchaseRanges && withinTokenLimit;
+   }
+
+   /// @notice To see if the minimum goal of tokens of the ICO has been reached
+   /// @return bool True if the tokens raised are bigger than the goal or false otherwise
+   function goalReached() public constant returns(bool) {
+      return tokensRaised >= minimumGoal;
    }
 
    /// @notice Public function to check if the crowdsale has ended or not
