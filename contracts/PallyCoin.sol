@@ -325,7 +325,7 @@ contract PallyCoin is PausableToken {
       tokensDistributedPresale = tokensDistributedPresale.add(tokens);
       balances[_buyer] = balances[_buyer].add(tokens);
    }
-
+   
    /// @notice Distributes the ICO tokens. Only the crowdsale address can execute this
    /// @param _buyer The buyer address
    /// @param tokens The amount of tokens to send to that address
