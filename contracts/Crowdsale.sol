@@ -1,4 +1,4 @@
-pragma solidity 0.4.15;
+pragma solidity ^0.4.15;
 
 /**
  * @title SafeMath
@@ -351,11 +351,11 @@ contract PallyCoin is PausableToken {
 contract RefundVault is Ownable {
   using SafeMath for uint256;
 
-  address public wallet;
-  address public crowdsale;
-  State public state;
-
   enum State { Active, Refunding, Closed }
+
+  address private wallet;
+  address private crowdsale;
+  State public state;
 
   mapping (address => uint256) public deposited;
 
@@ -375,27 +375,27 @@ contract RefundVault is Ownable {
     state = State.Active;
   }
 
-  function deposit(address investor) payable onlyCrowdsale {
+  function deposit(address investor) external payable onlyCrowdsale {
     require(state == State.Active);
 
     deposited[investor] = deposited[investor].add(msg.value);
   }
 
-  function close() onlyCrowdsale {
+  function close() external onlyCrowdsale {
     require(state == State.Active);
 
     state = State.Closed;
     wallet.transfer(this.balance);
   }
 
-  function enableRefunds() onlyCrowdsale {
+  function enableRefunds() external onlyCrowdsale {
     require(state == State.Active);
 
     state = State.Refunding;
     RefundsEnabled();
   }
 
-  function refund(address investor) {
+  function refund(address investor) external {
     require(state == State.Refunding);
 
     uint256 depositedValue = deposited[investor];
@@ -408,7 +408,7 @@ contract RefundVault is Ownable {
 // 1. First you set the address of the wallet in the RefundVault contract that will store the deposit of ether
 // 2. If the goal is reached, the state of the vault will change and the ether will be sent to the address
 // 3. If the goal is not reached after 28 days, the state of the vault will change to refunding and the users will be able to call claimRefund() to get their ether
-// 4. You have to enable refunds manually by the owner
+
 
 /// @title Crowdsale contract to carry out an ICO with the PallyCoin
 /// Crowdsales have a start and end timestamps, where investors can make
@@ -416,7 +416,7 @@ contract RefundVault is Ownable {
 /// on a token per ETH rate. Funds collected are forwarded to a wallet
 /// as they arrive.
 /// @author Merunas Grincalaitis <merunasgrincalaitis@gmail.com>
-contract Crowdsale is PallyCoin, RefundVault {
+contract Crowdsale is Pausable {
    using SafeMath for uint256;
 
    // The token being sold
@@ -505,7 +505,7 @@ contract Crowdsale is PallyCoin, RefundVault {
 
    /// @notice To buy tokens given an address
    /// @param beneficiary The address that will get the tokens
-   function buyTokens(address beneficiary) payable {
+   function buyTokens(address beneficiary) payable whenNotPaused {
       require(beneficiary != address(0));
       require(validPurchase());
 
@@ -567,49 +567,6 @@ contract Crowdsale is PallyCoin, RefundVault {
       checkCompletedCrowdsale();
    }
 
-   /// @notice Buys the tokens for the specified tier and for the next one
-   /// @param amount The amount of ether paid to buy the tokens
-   /// @param tokensThisTier The limit of tokens of that tier
-   /// @param tierSelected The tier selected
-   /// @param _rate The rate used for that `tierSelected`
-   /// @return uint The total amount of tokens bought combining the tier prices
-   function calculateExcessTokens(
-      uint256 amount,
-      uint256 tokensThisTier,
-      uint256 tierSelected,
-      uint256 _rate
-   ) public constant returns(uint256 totalTokens) {
-      uint weiThisTier = tokensThisTier.sub(tokensRaised).mul(1e18).div(_rate);
-      uint weiNextTier = amount.sub(weiThisTier);
-      uint tokensNextTier;
-
-      // If there's excessive wei for the last tier, refund those
-      if(tierSelected == 4)
-         msg.sender.transfer(weiNextTier);
-      else
-         tokensNextTier = calculateTokensTier(weiNextTier, tierSelected.add(1));
-
-      totalTokens = tokensThisTier.sub(tokensRaised).add(tokensNextTier);
-   }
-
-   /// @notice Buys the tokens given the price of the tier one and the wei paid
-   /// @param weiPaid The amount of wei paid that will be used to buy tokens
-   /// @param tierSelected The tier that you'll use for thir purchase
-   /// @return tokensBought Returns how many tokens you've bought for that wei paid
-   function calculateTokensTier(uint256 weiPaid, uint256 tierSelected) internal constant returns(uint256 tokensBought){
-      require(weiPaid > 0);
-      require(tierSelected >= 1 && tierSelected <= 4);
-
-      if(tierSelected == 1)
-         tokensBought = weiPaid.mul(rate).div(1e18);
-      else if(tierSelected == 2)
-         tokensBought = weiPaid.mul(rateTier2).div(1e18);
-      else if(tierSelected == 3)
-         tokensBought = weiPaid.mul(rateTier3).div(1e18);
-      else
-         tokensBought = weiPaid.mul(rateTier4).div(1e18);
-   }
-
    /// @notice Set's the rate of tokens per ether for each tier. Use it after the
    /// smart contract is deployed to set the price according to the ether price
    /// at the start of the ICO
@@ -645,6 +602,52 @@ contract Crowdsale is PallyCoin, RefundVault {
 
      vault.refund(msg.sender);
    }
+
+   /// @notice Buys the tokens for the specified tier and for the next one
+   /// @param amount The amount of ether paid to buy the tokens
+   /// @param tokensThisTier The limit of tokens of that tier
+   /// @param tierSelected The tier selected
+   /// @param _rate The rate used for that `tierSelected`
+   /// @return uint The total amount of tokens bought combining the tier prices
+   function calculateExcessTokens(
+      uint256 amount,
+      uint256 tokensThisTier,
+      uint256 tierSelected,
+      uint256 _rate
+   ) public constant returns(uint256 totalTokens) {
+      uint weiThisTier = tokensThisTier.sub(tokensRaised).mul(1e18).div(_rate);
+      uint weiNextTier = amount.sub(weiThisTier);
+      uint tokensNextTier;
+
+      // If there's excessive wei for the last tier, refund those
+      if(tierSelected == 4)
+         msg.sender.transfer(weiNextTier);
+      else
+         tokensNextTier = calculateTokensTier(weiNextTier, tierSelected.add(1));
+
+      totalTokens = tokensThisTier.sub(tokensRaised).add(tokensNextTier);
+   }
+
+   /// @notice Buys the tokens given the price of the tier one and the wei paid
+   /// @param weiPaid The amount of wei paid that will be used to buy tokens
+   /// @param tierSelected The tier that you'll use for thir purchase
+   /// @return tokensBought Returns how many tokens you've bought for that wei paid
+   function calculateTokensTier(uint256 weiPaid, uint256 tierSelected)
+        internal constant returns(uint256 tokensBought)
+   {
+      require(weiPaid > 0);
+      require(tierSelected >= 1 && tierSelected <= 4);
+
+      if(tierSelected == 1)
+         tokensBought = weiPaid.mul(rate).div(1e18);
+      else if(tierSelected == 2)
+         tokensBought = weiPaid.mul(rateTier2).div(1e18);
+      else if(tierSelected == 3)
+         tokensBought = weiPaid.mul(rateTier3).div(1e18);
+      else
+         tokensBought = weiPaid.mul(rateTier4).div(1e18);
+   }
+
 
    /// @notice Checks if a purchase is considered valid
    /// @return bool If the purchase is valid or not
