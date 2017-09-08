@@ -42,6 +42,8 @@ contract('Crowdsale', accounts => {
       assert.equal(crowdsaleInstance.token(), tokenAddress, "Token address isn't correct")
    })
 
+   it("Should set the vault wallet address correctly")
+
    it("Should set the tier rates of the crowdsale instance correctly", cb => {
       crowdsaleInstance.setTierRates(rateTier1, rateTier2, rateTier3, rateTier4, {
          from: web3.eth.accounts[0],
@@ -76,7 +78,8 @@ contract('Crowdsale', accounts => {
 
    it("Should buy 10 million tokens for 2000 ether at rate 5000 with the buyTokens function", cb => {
       const amountToBuy = web3.toWei(2000, 'ether')
-      const expectedTokens = amountToBuy * rateTier1 / 1e18
+      const tokensToBuy = amountToBuy * rateTier1 / 1e18
+      const expectedTokens = getTokens(web3.toWei(2000, 'ether'), rateTier1)
       let initialTokenBalance
 
       web3.eth.getBalance(web3.eth.accounts[0], (err, balance) => {
@@ -96,7 +99,7 @@ contract('Crowdsale', accounts => {
                         console.log('Tokens raised --> ' + tokens.toString())
 
                         assert.equal(tokens.toString(), expectedTokens, 'The tokens raised are not correct')
-                        assert.equal(initialTokenBalance + expectedTokens, parseInt(myBalance), 'The balance is not correct after buying tokens')
+                        assert.equal(initialTokenBalance + tokensToBuy, parseInt(myBalance), 'The balance is not correct after buying tokens')
 
                         cb()
                      })
@@ -301,6 +304,149 @@ contract('Crowdsale', accounts => {
          })
       })
    })
+
+   it("Should buy 50 million tokens for an additional 2000 + 2000 + 2000 + 250 ether (including the past test tokens) with the buyTokens function", cb => {
+
+      // 37.5m - 34m = 3.5m tokens at tier3 = 1166 ether = 3500000 / rateTier3
+      // 12.5m at tier4 = 6.250 ether
+
+      // You can't buy more than 2000 ether as defined by maxPurchase so we split it
+      const amountToBuy = web3.toWei(3500000 / rateTier3, 'ether')
+      const amountToBuy2 = web3.toWei(2000, 'ether')
+      const amountToBuy3 = web3.toWei(2000, 'ether')
+      const amountToBuy4 = web3.toWei(2000, 'ether')
+      const amountToBuy5 = web3.toWei(250, 'ether')
+      const tokensToBuy = 16e6
+      const expectedTokens =
+         getTokens(web3.toWei(2500, 'ether'), rateTier1) + // Past purchase of tokens
+         getTokens(web3.toWei(3125, 'ether'), rateTier2) + // Past purchase of tokens
+         getTokens(web3.toWei(3000, 'ether'), rateTier3) + // Past purchase of tokens
+         3500000 + // 3.5M tokens
+         getTokens(web3.toWei(6250, 'ether'), rateTier4)
+
+      let initialTokenBalance
+
+      web3.eth.getBalance(web3.eth.accounts[0], (err, balance) => {
+         assert.equal(true, balance > amountToBuy, `You don\'t have the balance to buy ${web3.fromWei(amountToBuy, 'ether')} ethers`)
+
+         tokenInstance.balanceOf(web3.eth.accounts[0], (err, myBalance) => {
+            initialTokenBalance = parseInt(myBalance)
+
+            console.log('Initial token balance ' + parseInt(myBalance))
+
+            crowdsaleInstance.buyTokens(web3.eth.accounts[0], {
+               from: web3.eth.accounts[0],
+               gas: 4500000,
+               value: amountToBuy
+            }, (err, transaction) => {
+
+               setTimeout(() => {
+                  crowdsaleInstance.buyTokens(web3.eth.accounts[0], {
+                     from: web3.eth.accounts[0],
+                     gas: 4500000,
+                     value: amountToBuy2
+                  }, (err, transaction) => {
+
+                     setTimeout(() => {
+                        crowdsaleInstance.buyTokens(web3.eth.accounts[0], {
+                           from: web3.eth.accounts[0],
+                           gas: 4500000,
+                           value: amountToBuy3
+                        }, (err, transaction) => {
+
+                           setTimeout(() => {
+                              crowdsaleInstance.buyTokens(web3.eth.accounts[0], {
+                                 from: web3.eth.accounts[0],
+                                 gas: 4500000,
+                                 value: amountToBuy4
+                              }, (err, transaction) => {
+
+                                 setTimeout(() => {
+                                    crowdsaleInstance.buyTokens(web3.eth.accounts[0], {
+                                       from: web3.eth.accounts[0],
+                                       gas: 4500000,
+                                       value: amountToBuy5
+                                    }, (err, transaction) => {
+
+                                       setTimeout(() => {
+                                          tokenInstance.balanceOf(web3.eth.accounts[0], (err, myBalance) => {
+                                             crowdsaleInstance.tokensRaised((err, tokens) => {
+                                                console.log('Tokens raised --> ' + tokens.toString())
+                                                console.log('Final token balance ' + parseInt(myBalance))
+
+                                                assert.equal(tokens.toString(), expectedTokens, 'The tokens raised are not correct')
+                                                assert.equal(initialTokenBalance + tokensToBuy, parseInt(myBalance), 'The balance is not correct after buying tokens')
+
+                                                cb()
+                                             })
+                                          })
+                                       }, 2e3)
+                                    })
+                                 }, 2e3)
+                              })
+                           }, 2e3)
+                        })
+                     }, 2e3)
+                  })
+               }, 2e3)
+            })
+         })
+      })
+   })
+
+   // Checking that the balanceOf stays the same because the transaction was reverted
+   it("Should not buy more than 50 million tokens", cb => {
+
+      // We have 50 million tokens from the past purchase, try to buy more
+      const amountToBuy = web3.toWei(1000, 'ether')
+      const expectedTokens = 50e6
+
+      web3.eth.getBalance(web3.eth.accounts[0], (err, balance) => {
+         assert.equal(true, balance > amountToBuy, `You don\'t have the balance to buy ${web3.fromWei(amountToBuy, 'ether')} ethers`)
+
+         tokenInstance.balanceOf(web3.eth.accounts[0], (err, myBalance) => {
+            initialTokenBalance = parseInt(myBalance)
+
+            console.log('Initial token balance ' + parseInt(myBalance))
+
+            crowdsaleInstance.buyTokens(web3.eth.accounts[0], {
+               from: web3.eth.accounts[0],
+               gas: 4500000,
+               value: amountToBuy
+            }, (err, transaction) => {
+
+               setTimeout(() => {
+                  crowdsaleInstance.tokensRaised((err, tokens) => {
+                     tokens = tokens.toString()
+
+                     tokenInstance.balanceOf(web3.eth.accounts[0], (err, myBalance) => {
+                        console.log('Final token balance ' + parseInt(myBalance))
+
+                        assert.equal(tokens.toString(), expectedTokens, 'The tokens raised are not correct')
+                        assert.equal(initialTokenBalance, parseInt(myBalance), 'The balance is not correct after buying tokens')
+
+                        cb()
+                     })
+                  })
+               }, 2e3)
+            })
+         })
+      })
+   })
+
+   it("Should refund the ether of a purchase if the state is refunding with the claimRefund()")
+
+   it("Should enable refunds when the crowdsale time is over")
+
+   it("Should close the refund vault and send the ether to the wallet")
+
+   it("Should be able to pause the contract by the owner")
+
+   it("Should be able to unpause the contract by the owner")
+
+   it("Should not be able to pause the contract if you're not the owner")
+
+   it("Should not allow to buy tokens when the contract is paused")
 
    it("Should check if the crowdsale has ended or not", cb => {
       crowdsaleInstance.hasEnded((err, hasEnded) => {
