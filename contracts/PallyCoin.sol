@@ -7,7 +7,7 @@ import 'zeppelin-solidity/contracts/token/PausableToken.sol';
 /// @author Merunas Grincalaitis
 contract PallyCoin is PausableToken {
    using SafeMath for uint256;
-   
+
    string public name = 'PallyCoin';
 
    string public constant symbol = 'PAL';

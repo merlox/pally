@@ -14,7 +14,7 @@ contract RefundVault is Ownable {
 
   enum State { Active, Refunding, Closed }
 
-  address private wallet;
+  address public wallet;
   address private crowdsale;
   State public state;
 

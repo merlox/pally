@@ -1,6 +1,7 @@
 const assert = require('assert')
 const PallyCoin = artifacts.require('PallyCoin')
 const Crowdsale = artifacts.require('Crowdsale')
+const RefundVault = artifacts.require('RefundVault')
 let tokenInstance = {}
 let crowdsaleInstance = {}
 
@@ -28,7 +29,7 @@ contract('Crowdsale', accounts => {
       tokenInstance = web3.eth.contract(PallyCoin.abi).at(crowdsaleInstance.token())
       tokenInstance.setCrowdsaleAddress(crowdsaleInstance.address, {
          from: web3.eth.accounts[0],
-         gas: 4000000
+         gas: 4e6
       }, (err, result) => {
          cb()
       })
@@ -42,7 +43,19 @@ contract('Crowdsale', accounts => {
       assert.equal(crowdsaleInstance.token(), tokenAddress, "Token address isn't correct")
    })
 
-   it("Should set the vault wallet address correctly")
+   it("Should set the vault wallet address correctly", cb => {
+      crowdsaleInstance.vault((err, vaultAddress) => {
+         let vaultInstance = web3.eth.contract(RefundVault.abi).at(vaultAddress)
+
+         vaultInstance.wallet((err, wallet) => {
+            console.log('Vault wallet address --> ' + wallet)
+
+            assert.equal(wallet, web3.eth.accounts[0], 'The wallet address of the vault isn\'t correct')
+
+            cb()
+         })
+      })
+   })
 
    it("Should set the tier rates of the crowdsale instance correctly", cb => {
       crowdsaleInstance.setTierRates(rateTier1, rateTier2, rateTier3, rateTier4, {
@@ -78,8 +91,8 @@ contract('Crowdsale', accounts => {
 
    it("Should buy 10 million tokens for 2000 ether at rate 5000 with the buyTokens function", cb => {
       const amountToBuy = web3.toWei(2000, 'ether')
-      const tokensToBuy = amountToBuy * rateTier1 / 1e18
-      const expectedTokens = getTokens(web3.toWei(2000, 'ether'), rateTier1)
+      const tokensToBuy = getTokens(amountToBuy, rateTier1)
+      const expectedTokens = tokensToBuy
       let initialTokenBalance
 
       web3.eth.getBalance(web3.eth.accounts[0], (err, balance) => {
@@ -90,13 +103,14 @@ contract('Crowdsale', accounts => {
 
             crowdsaleInstance.buyTokens(web3.eth.accounts[0], {
                from: web3.eth.accounts[0],
-               gas: 4000000,
+               gas: 4e6,
                value: amountToBuy
             }, (err, transaction) => {
                setTimeout(() => {
                   tokenInstance.balanceOf(web3.eth.accounts[0], (err, myBalance) => {
                      crowdsaleInstance.tokensRaised((err, tokens) => {
                         console.log('Tokens raised --> ' + tokens.toString())
+                        console.log('Expected tokens --> ' + expectedTokens)
 
                         assert.equal(tokens.toString(), expectedTokens, 'The tokens raised are not correct')
                         assert.equal(initialTokenBalance + tokensToBuy, parseInt(myBalance), 'The balance is not correct after buying tokens')
@@ -434,9 +448,89 @@ contract('Crowdsale', accounts => {
       })
    })
 
-   it("Should refund the ether of a purchase if the state is refunding with the claimRefund()")
+   // it("Should enable refunds when the crowdsale time is over", async cb => {
+   //    const times = new Date()
+   //
+   //    // Set the actual time + 5 seconds
+   //    const endTime = Math.floor(times.setSeconds(times.getSeconds() + 5) / 1000)
+   //
+   //    // PallyCoin.new returns a promise so we can await for it
+   //    let token = await PallyCoin.new(web3.eth.accounts[0])
+   //
+   //    // Create a new instance with a modified end time
+   //    let crowdsale = await Crowdsale.new(web3.eth.accounts[0], token.address, endTime)
+   //
+   //    await token.setCrowdsaleAddress(crowdsale.address, {
+   //       from: web3.eth.accounts[0],
+   //       gas: 4e6
+   //    })
+   //
+   //    await crowdsale.setTierRates(rateTier1, rateTier2, rateTier3, rateTier4, {
+   //       from: web3.eth.accounts[0],
+   //       gas: 3000000
+   //    })
+   //
+   //    // Wait until the crowdsale is ended
+   //    setTimeout(() => {
+   //
+   //       // Call the checkCompletedCrowdsale() to activate the refunding mode
+   //       await crowdsale.checkCompletedCrowdsale({
+   //          from: web3.eth.accounts[0],
+   //          gas: 4e3
+   //       })
+   //
+   //       // Give it time to mine the changes
+   //       setTimeout(() => {
+   //
+   //          // Check that the refund mode has been activated
+   //          let isRefunding = await crowdsale.isRefunding()
+   //
+   //          console.log('Is refunding? ' + isRefunding)
+   //          assert.equal(true, isRefunding, "The Crowdsale contracts is not refunding when it should")
+   //
+   //          cb()
+   //       }, 2e3)
+   //    }, 6e3)
+   // })
 
-   it("Should enable refunds when the crowdsale time is over")
+   // it("Should refund the ether of a purchase if the state is refunding with the claimRefund()", cb => {
+   //    const times = new Date()
+   //
+   //    // Set the actual time + 5 second
+   //    const endTime = Math.floor(times.setSeconds(times.getSeconds() + 5) / 1000)
+   //
+   //    // Create a new instance with a modifier end time
+   //    let contract = web3.eth.contract(Crowdsale.abi).new(web3.eth.accounts[0], PallyCoin.address, endTime, {
+   //       from: web3.eth.accounts[0],
+   //       gas: 4e6
+   //    })
+   //
+   //    contract.buyTokens
+   //
+   //    // Wait until the time is over
+   //    setTimeout(() => {
+   //
+   //       // Call the checkCompletedCrowdsale() to activate the mode
+   //       constract.checkCompletedCrowdsale({
+   //          from: web3.eth.accounts[0],
+   //          gas: 4e3
+   //       }, (err, response) => {
+   //
+   //          // Give it time to mine the changes
+   //          setTimeout(() => {
+   //
+   //             // Check that the refund mode has been activated
+   //             contract.claimRefund((err, isRefunding) => {
+   //                console.log('Is refunding? ' + isRefunding)
+   //
+   //                assert.equal(true, isRefunding, "The Crowdsale contracts is not refunding when it should")
+   //
+   //                cb()
+   //             })
+   //          }, 2e3)
+   //       })
+   //    }, 2e3)
+   // })
 
    it("Should close the refund vault and send the ether to the wallet")
 

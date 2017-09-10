@@ -31,7 +31,7 @@ contract Crowdsale is Pausable {
    // The block number of when the crowdsale ends
    // 11/13/2017 @ 11:00am (UTC)
    // 11/13/2017 @ 12:00pm (GMT + 1)
-   uint256 public constant endTime = 1510570800;
+   uint256 public endTime = 1510570800;
 
    // The wallet that holds the Wei raised on the crowdsale
    address public wallet;
@@ -82,13 +82,12 @@ contract Crowdsale is Pausable {
    event Finalized();
 
    /// @notice Constructor of the crowsale to set up the main variables and create a token
-   /// The constructor need ether to be able to distribute the tokens by calling the PallyCoin
-   /// token smart contract
    /// @param _wallet The wallet address that stores the Wei raised
    /// @param _tokenAddress The token used for the ICO
    function Crowdsale(
       address _wallet,
-      address _tokenAddress
+      address _tokenAddress,
+      uint256 _endTime
    ) payable {
       require(_wallet != address(0));
       require(_tokenAddress != address(0));
@@ -96,6 +95,9 @@ contract Crowdsale is Pausable {
       wallet = _wallet;
       token = PallyCoin(_tokenAddress);
       vault = new RefundVault(_wallet);
+
+      if(_endTime > 0)
+         endTime = _endTime;
    }
 
    /// @notice Fallback function to buy tokens

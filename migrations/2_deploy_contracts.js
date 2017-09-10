@@ -13,9 +13,10 @@ module.exports = function(deployer, network) {
          return deployer.deploy(
             Crowdsale,
             web3.eth.accounts[0],
-            tokenInstance.address, {
+            tokenInstance.address,
+            0, {
                from: web3.eth.accounts[0],
-               value: web3.toWei(10, 'ether')
+               value: web3.toWei(1, 'ether')
             }
          )
       })
