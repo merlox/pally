@@ -75,8 +75,13 @@ contract Crowdsale is Pausable {
    // to claim the refund of their ether
    bool public isRefunding = false;
 
+   // If the crowdsale has ended or not
+   bool public isEnded = false;
+
+   mapping(address => uint256) public crowdsaleBalances;
+
    // To indicate who purchased what amount of tokens and who received what amount of wei
-   event TokenPurchase(address indexed purchaser, address indexed beneficiary, uint256 value, uint256 amount);
+   event TokenPurchase(address indexed buyer, uint256 value, uint256 amountOfTokens);
 
    // Indicates if the crowdsale has ended
    event Finalized();
@@ -102,71 +107,113 @@ contract Crowdsale is Pausable {
 
    /// @notice Fallback function to buy tokens
    function () payable {
-      buyTokens(msg.sender);
+      buyTokens();
    }
 
    /// @notice To buy tokens given an address
-   /// @param beneficiary The address that will get the tokens
-   function buyTokens(address beneficiary) payable whenNotPaused {
-      require(beneficiary != address(0));
+   function buyTokens() payable whenNotPaused {
       require(validPurchase());
 
       uint256 tokens = 0;
+      uint256 amountPaid = calculateExcessBalance();
 
       if(tokensRaised < 12500000) {
 
          // Tier 1
-         tokens = msg.value.mul(rate).div(1e18);
+         tokens = amountPaid.mul(rate).div(1e18);
 
          // If the amount of tokens that you want to buy gets out of this tier
          if(tokensRaised.add(tokens) > 12500000)
-            tokens = calculateExcessTokens(msg.value, 12500000, 1, rate);
+            tokens = calculateExcessTokens(amountPaid, 12500000, 1, rate);
       } else if(tokensRaised >= 12500000 && tokensRaised < 25000000) {
 
          // Tier 2
-         tokens = msg.value.mul(rateTier2).div(1e18);
+         tokens = amountPaid.mul(rateTier2).div(1e18);
 
          // If the amount of tokens that you want to buy gets out of this tier
          if(tokensRaised.add(tokens) > 25000000)
-            tokens = calculateExcessTokens(msg.value, 25000000, 2, rateTier2);
+            tokens = calculateExcessTokens(amountPaid, 25000000, 2, rateTier2);
       } else if(tokensRaised >= 25000000 && tokensRaised < 37500000) {
 
          // Tier 3
-         tokens = msg.value.mul(rateTier3).div(1e18);
+         tokens = amountPaid.mul(rateTier3).div(1e18);
 
          // If the amount of tokens that you want to buy gets out of this tier
          if(tokensRaised.add(tokens) > 37500000)
-            tokens = calculateExcessTokens(msg.value, 37500000, 3, rateTier3);
-      } else if(tokensRaised >= 37500000 && tokensRaised <= maxTokensRaised) {
+            tokens = calculateExcessTokens(amountPaid, 37500000, 3, rateTier3);
+      } else if(tokensRaised >= 37500000) {
 
          // Tier 4
-         tokens = msg.value.mul(rateTier4).div(1e18);
-
-         // If the amount of tokens that you want to buy gets out of this tier
-         if(tokensRaised.add(tokens) > maxTokensRaised)
-            tokens = calculateExcessTokens(msg.value, maxTokensRaised, 4, rateTier4);
+         tokens = amountPaid.mul(rateTier4).div(1e18);
       }
 
-      weiRaised = weiRaised.add(msg.value);
+      weiRaised = weiRaised.add(amountPaid);
       tokensRaised = tokensRaised.add(tokens);
-      token.distributeICOTokens(beneficiary, tokens);
-      TokenPurchase(msg.sender, beneficiary, msg.value, tokens);
+      token.distributeICOTokens(msg.sender, tokens);
+      TokenPurchase(msg.sender, amountPaid, tokens);
 
-      forwardFunds();
+      forwardFunds(amountPaid);
    }
 
    /// @notice Sends the funds to the wallet or to the refund vault smart contract
    /// if the minimum goal of tokens hasn't been reached yet
-   function forwardFunds() internal {
-      if(tokensRaised < minimumGoal) {
-         vault.deposit.value(msg.value)(msg.sender);
+   /// @param amountPaid The amount of ether paid
+   function forwardFunds(uint256 amountPaid) internal {
+      if(tokensRaised <= minimumGoal) {
+         vault.deposit.value(amountPaid)(msg.sender);
       } else {
-         wallet.transfer(msg.value);
+         wallet.transfer(amountPaid);
       }
 
       // If the minimum goal of the ICO has been reach, close the vault to send
       // the ether to the wallet of the crowdsale
       checkCompletedCrowdsale();
+   }
+
+   /// @notice Calculates how many ether will be used to generate the tokens in
+   /// case the buyer sends more than the maximum balance but has some balance left
+   /// and updates the balance of that buyer.
+   /// For instance if he's 1500 balance and he sends 1000, it will return 500
+   /// and refund the other 500 ether
+   function calculateExcessBalance() internal returns(uint256) {
+      uint256 amountPaid = msg.value;
+
+      // If we're in the last tier, check that the limit hasn't been reached
+      // and if so, refund the difference and return what will be used to
+      // buy the remaining tokens
+      if(tokensRaised >= 37500000) {
+         uint256 addedTokens = tokensRaised.add(amountPaid.mul(rateTier4).div(1e18));
+
+         // If tokensRaised + what you paid converted to tokens is bigger than the max
+         if(addedTokens > maxTokensRaised) {
+
+            // Refund the difference
+            uint256 difference = addedTokens.sub(maxTokensRaised);
+            uint256 differenceWei = difference.mul(1e18).div(rateTier4);
+
+            msg.sender.transfer(differenceWei);
+            amountPaid = amountPaid.sub(differenceWei);
+         }
+      }
+
+      uint256 addedBalance = crowdsaleBalances[msg.sender].add(amountPaid);
+
+      if(addedBalance <= 2000000000000000000000) {
+         crowdsaleBalances[msg.sender] += amountPaid;
+      } else {
+
+         // Substracting 2000 ether in wei
+         uint256 exceedingBalance = addedBalance.sub(2000000000000000000000);
+
+         // Return the exceeding balance to the buyer
+         msg.sender.transfer(exceedingBalance);
+         amountPaid = msg.value.sub(exceedingBalance);
+
+         // Add that balance to the balances
+         crowdsaleBalances[msg.sender] += amountPaid;
+      }
+
+      return amountPaid;
    }
 
    /// @notice Set's the rate of tokens per ether for each tier. Use it after the
@@ -188,13 +235,19 @@ contract Crowdsale is Pausable {
    /// @notice Check if the crowdsale has ended and enables refunds only in case the
    /// goal hasn't been reached
    function checkCompletedCrowdsale() public {
-      if(hasEnded() && !goalReached()){
-         vault.enableRefunds();
-         isRefunding = true;
-         Finalized();
-      } else if(hasEnded() && goalReached()) {
-         vault.close();
-         Finalized();
+      if(!isEnded) {
+         if(hasEnded() && !goalReached()){
+            vault.enableRefunds();
+
+            isRefunding = true;
+            isEnded = true;
+            Finalized();
+         } else if(hasEnded() && goalReached()) {
+            vault.close();
+
+            isEnded = true;
+            Finalized();
+         }
       }
    }
 
@@ -220,7 +273,7 @@ contract Crowdsale is Pausable {
    ) public constant returns(uint256 totalTokens) {
       uint weiThisTier = tokensThisTier.sub(tokensRaised).mul(1e18).div(_rate);
       uint weiNextTier = amount.sub(weiThisTier);
-      uint tokensNextTier;
+      uint tokensNextTier = 0;
 
       // If there's excessive wei for the last tier, refund those
       if(tierSelected == 4)
@@ -257,10 +310,11 @@ contract Crowdsale is Pausable {
    function validPurchase() internal constant returns(bool) {
       bool withinPeriod = now >= startTime && now <= endTime;
       bool nonZeroPurchase = msg.value > 0;
-      bool withinPurchaseRanges = msg.value >= minPurchase && msg.value <= maxPurchase;
       bool withinTokenLimit = tokensRaised < maxTokensRaised;
+      bool minimumPurchase = msg.value >= minPurchase;
+      bool hasBalanceAvailable = crowdsaleBalances[msg.sender] < 2000000000000000000000;
 
-      return withinPeriod && nonZeroPurchase && withinPurchaseRanges && withinTokenLimit;
+      return withinPeriod && nonZeroPurchase && withinTokenLimit && minimumPurchase && hasBalanceAvailable;
    }
 
    /// @notice To see if the minimum goal of tokens of the ICO has been reached
@@ -271,6 +325,6 @@ contract Crowdsale is Pausable {
 
    /// @notice Public function to check if the crowdsale has ended or not
    function hasEnded() public constant returns(bool) {
-      return now > endTime;
+      return now > endTime || tokensRaised >= maxTokensRaised;
    }
 }
