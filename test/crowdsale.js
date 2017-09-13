@@ -146,7 +146,7 @@ contract('Crowdsale', accounts => {
       })
    })
 
-   it("Should buy 14.5 million tokens for 3000 ether with buyTokens()", () => {
+   it("Should buy 14.5 million tokens for 3000 ether with buyTokens() in steps of 2000 + 1000 ether respecting the max purchase limit of 2000 ether", () => {
       return new Promise(async (resolve, reject) => {
 
          // You can't buy more than 2000 ether as defined by maxPurchase so we split it
