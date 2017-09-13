@@ -724,6 +724,29 @@ contract('Crowdsale', accounts => {
       })
    })
 
+   it("Should check if the goal of the crowdsale has been reached or not", () => {
+      return new Promise(async (resolve, reject) => {
+         const amountToBuy = web3.toWei(2000, 'ether') // 10 Million tokens
+         let goalReached = await crowdsaleInstance.goalReached()
+
+         goalReached.should.equal(false, "The goal reached must not be true without buying")
+
+         await crowdsaleInstance.buyTokens({
+            from: web3.eth.accounts[0],
+            gas: 4e6,
+            value: amountToBuy
+         })
+
+         setTimeout(async () => {
+            goalReached = await crowdsaleInstance.goalReached()
+
+            goalReached.should.equal(true, "The goal must be true because we've bought 10M tokens")
+
+            resolve()
+         }, 2e3)
+      })
+   })
+
    it("Should check if the crowdsale has ended or not", () => {
       return new Promise(async (resolve, reject) => {
          const hasEnded = await crowdsaleInstance.hasEnded()
