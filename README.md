@@ -27,4 +27,4 @@ truffle test
 The contracts `PallyCoin` and `Crowdsale` each have tests to make sure all the functions work as expected.
 There's a total of 23 tests at the moment of writing this. They cover most of the possible use cases.
 
-![tests passing demonstration](https://raw.githubusercontent.com/merlox/pally/master/contract tests demonstraction.png)
+![tests passing demonstration](https://github.com/merlox/pally/blob/master/contract%20tests%20demonstration.PNG)
