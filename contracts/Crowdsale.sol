@@ -115,7 +115,7 @@ contract Crowdsale is Pausable {
    }
 
    /// @notice To buy tokens given an address
-   function buyTokens() payable whenNotPaused {
+   function buyTokens() public payable whenNotPaused {
       require(validPurchase());
 
       uint256 tokens = 0;
@@ -230,7 +230,9 @@ contract Crowdsale is Pausable {
    /// @param tier2 The amount of tokens you get in the tier two
    /// @param tier3 The amount of tokens you get in the tier three
    /// @param tier4 The amount of tokens you get in the tier four
-   function setTierRates(uint256 tier1, uint256 tier2, uint256 tier3, uint256 tier4) external onlyOwner whenNotPaused {
+   function setTierRates(uint256 tier1, uint256 tier2, uint256 tier3, uint256 tier4)
+      external onlyOwner whenNotPaused
+   {
       require(tier1 > 0 && tier2 > 0 && tier3 > 0 && tier4 > 0);
 
       rate = tier1;
