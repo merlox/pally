@@ -30,6 +30,9 @@ contract PallyCoin is PausableToken {
       _;
    }
 
+   // When someone refunds tokens
+   event RefundedTokens(address indexed user, uint256 tokens);
+
    /// @notice Constructor used to set the platform & development tokens. This is
    /// The 20% + 20% of the 100 M tokens used for platform and development team.
    /// The owner, msg.sender, is able to do allowance for other contracts. Remember
@@ -72,5 +75,17 @@ contract PallyCoin is PausableToken {
 
       tokensDistributedCrowdsale = tokensDistributedCrowdsale.add(tokens);
       balances[_buyer] = balances[_buyer].add(tokens);
+   }
+
+   /// @notice Deletes the amount of tokens refunded from that buyer balance
+   /// @param _buyer The buyer that wants the refund
+   /// @param tokens The tokens to return
+   function refundTokens(address _buyer, uint256 tokens) external onlyCrowdsale whenNotPaused {
+      require(_buyer != address(0));
+      require(tokens > 0);
+      require(balances[_buyer] >= tokens);
+
+      balances[_buyer] = balances[_buyer].sub(tokens);
+      RefundedTokens(_buyer, tokens);
    }
 }

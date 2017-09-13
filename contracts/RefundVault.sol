@@ -22,6 +22,7 @@ contract RefundVault is Ownable {
 
   event RefundsEnabled();
   event Refunded(address indexed beneficiary, uint256 weiAmount);
+  event LogDeposited(address indexed buyer, uint256 amount);
 
   modifier onlyCrowdsale() {
       require(msg.sender == crowdsale);
@@ -40,6 +41,7 @@ contract RefundVault is Ownable {
     require(state == State.Active);
 
     deposited[investor] = deposited[investor].add(msg.value);
+    LogDeposited(msg.sender, msg.value);
   }
 
   function close() external onlyCrowdsale {
@@ -56,7 +58,7 @@ contract RefundVault is Ownable {
     RefundsEnabled();
   }
 
-  function refund(address investor) external {
+  function refund(address investor) external onlyCrowdsale {
     require(state == State.Refunding);
 
     uint256 depositedValue = deposited[investor];

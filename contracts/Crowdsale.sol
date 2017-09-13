@@ -78,7 +78,11 @@ contract Crowdsale is Pausable {
    // If the crowdsale has ended or not
    bool public isEnded = false;
 
+   // How much each user paid for the crowdsale
    mapping(address => uint256) public crowdsaleBalances;
+
+   // How many tokens each user got for the crowdsale
+   mapping(address => uint256) public tokensBought;
 
    // To indicate who purchased what amount of tokens and who received what amount of wei
    event TokenPurchase(address indexed buyer, uint256 value, uint256 amountOfTokens);
@@ -150,6 +154,9 @@ contract Crowdsale is Pausable {
       weiRaised = weiRaised.add(amountPaid);
       tokensRaised = tokensRaised.add(tokens);
       token.distributeICOTokens(msg.sender, tokens);
+
+      // Keep a record of how many tokens everybody gets in case we need to do refunds
+      tokensBought[msg.sender] = tokensBought[msg.sender].add(tokens);
       TokenPurchase(msg.sender, amountPaid, tokens);
 
       forwardFunds(amountPaid);
@@ -158,7 +165,7 @@ contract Crowdsale is Pausable {
    /// @notice Sends the funds to the wallet or to the refund vault smart contract
    /// if the minimum goal of tokens hasn't been reached yet
    /// @param amountPaid The amount of ether paid
-   function forwardFunds(uint256 amountPaid) internal {
+   function forwardFunds(uint256 amountPaid) internal whenNotPaused {
       if(tokensRaised <= minimumGoal) {
          vault.deposit.value(amountPaid)(msg.sender);
       } else {
@@ -175,7 +182,7 @@ contract Crowdsale is Pausable {
    /// and updates the balance of that buyer.
    /// For instance if he's 1500 balance and he sends 1000, it will return 500
    /// and refund the other 500 ether
-   function calculateExcessBalance() internal returns(uint256) {
+   function calculateExcessBalance() internal whenNotPaused returns(uint256) {
       uint256 amountPaid = msg.value;
 
       // If we're in the last tier, check that the limit hasn't been reached
@@ -223,7 +230,7 @@ contract Crowdsale is Pausable {
    /// @param tier2 The amount of tokens you get in the tier two
    /// @param tier3 The amount of tokens you get in the tier three
    /// @param tier4 The amount of tokens you get in the tier four
-   function setTierRates(uint256 tier1, uint256 tier2, uint256 tier3, uint256 tier4) external onlyOwner {
+   function setTierRates(uint256 tier1, uint256 tier2, uint256 tier3, uint256 tier4) external onlyOwner whenNotPaused {
       require(tier1 > 0 && tier2 > 0 && tier3 > 0 && tier4 > 0);
 
       rate = tier1;
@@ -234,7 +241,7 @@ contract Crowdsale is Pausable {
 
    /// @notice Check if the crowdsale has ended and enables refunds only in case the
    /// goal hasn't been reached
-   function checkCompletedCrowdsale() public {
+   function checkCompletedCrowdsale() public whenNotPaused {
       if(!isEnded) {
          if(hasEnded() && !goalReached()){
             vault.enableRefunds();
@@ -252,11 +259,11 @@ contract Crowdsale is Pausable {
    }
 
    /// @notice If crowdsale is unsuccessful, investors can claim refunds here
-   function claimRefund() {
-     checkCompletedCrowdsale();
+   function claimRefund() whenNotPaused {
      require(hasEnded() && !goalReached() && isRefunding);
 
      vault.refund(msg.sender);
+     token.refundTokens(msg.sender, tokensBought[msg.sender]);
    }
 
    /// @notice Buys the tokens for the specified tier and for the next one
@@ -287,21 +294,21 @@ contract Crowdsale is Pausable {
    /// @notice Buys the tokens given the price of the tier one and the wei paid
    /// @param weiPaid The amount of wei paid that will be used to buy tokens
    /// @param tierSelected The tier that you'll use for thir purchase
-   /// @return tokensBought Returns how many tokens you've bought for that wei paid
+   /// @return calculatedTokens Returns how many tokens you've bought for that wei paid
    function calculateTokensTier(uint256 weiPaid, uint256 tierSelected)
-        internal constant returns(uint256 tokensBought)
+        internal constant returns(uint256 calculatedTokens)
    {
       require(weiPaid > 0);
       require(tierSelected >= 1 && tierSelected <= 4);
 
       if(tierSelected == 1)
-         tokensBought = weiPaid.mul(rate).div(1e18);
+         calculatedTokens = weiPaid.mul(rate).div(1e18);
       else if(tierSelected == 2)
-         tokensBought = weiPaid.mul(rateTier2).div(1e18);
+         calculatedTokens = weiPaid.mul(rateTier2).div(1e18);
       else if(tierSelected == 3)
-         tokensBought = weiPaid.mul(rateTier3).div(1e18);
+         calculatedTokens = weiPaid.mul(rateTier3).div(1e18);
       else
-         tokensBought = weiPaid.mul(rateTier4).div(1e18);
+         calculatedTokens = weiPaid.mul(rateTier4).div(1e18);
    }
 
 

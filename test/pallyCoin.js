@@ -38,8 +38,6 @@ contract('PallyCoin', accounts => {
       }, (err, result) => {
          setTimeout(() => {
             tokenInstance.crowdsale((err, crowdsaleAddress) => {
-               console.log("Crowdsale address " + crowdsaleAddress)
-
                assert.equal(crowdsaleAddress, crowdsaleInstance.address, "The crowdsale address is not correctly set")
 
                cb()
