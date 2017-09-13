@@ -259,7 +259,7 @@ contract Crowdsale is Pausable {
    }
 
    /// @notice If crowdsale is unsuccessful, investors can claim refunds here
-   function claimRefund() whenNotPaused {
+   function claimRefund() public whenNotPaused {
      require(hasEnded() && !goalReached() && isRefunding);
 
      vault.refund(msg.sender);
