@@ -673,7 +673,7 @@ contract('Crowdsale', accounts => {
       })
    })
 
-   it("Should not allow to buy tokens when the contract is paused", () => {
+   it("Should not allow you to buy tokens when the contract is paused", () => {
       return new Promise(async (resolve, reject) => {
          const amountToBuy = web3.toWei(1, 'ether')
          const tokensExpected = 0
@@ -697,7 +697,7 @@ contract('Crowdsale', accounts => {
    })
 
    // Buy 1500 then 1000. It should only buy the remaining 500 and refund the other 500
-   it("Should only allow to buy a total of 2000 ether during the entire crowdsale per buyer", () => {
+   it("Should only allow you to buy a total of 2000 ether during the entire crowdsale per buyer", () => {
       return new Promise(async (resolve, reject) => {
          const amountToBuy = web3.toWei(1500, 'ether')
          const amountToBuy2 = web3.toWei(1000, 'ether')
