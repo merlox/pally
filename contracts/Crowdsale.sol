@@ -62,14 +62,14 @@ contract Crowdsale is Pausable {
    uint256 public constant maxTokensRaised = 50000000;
 
    // The minimum amount of Wei you must pay to participate in the crowdsale
-   uint256 public minPurchase = 100 finney; // 0.1 ether
+   uint256 public constant minPurchase = 100 finney; // 0.1 ether
 
    // The max amount of Wei that you can pay to participate in the crowdsale
-   uint256 public maxPurchase = 2000 ether;
+   uint256 public constant maxPurchase = 2000 ether;
 
    // Minimum amount of tokens to be raised. 7.5 million tokens which is the 15%
    // of the total of 50 million tokens sold in the crowdsale
-   uint256 public minimumGoal = 7500000;
+   uint256 public constant minimumGoal = 7500000;
 
    // If the crowdsale wasn't successful, this will be true and users will be able
    // to claim the refund of their ether
