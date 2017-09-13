@@ -280,6 +280,9 @@ contract Crowdsale is Pausable {
       uint256 tierSelected,
       uint256 _rate
    ) public constant returns(uint256 totalTokens) {
+      require(amount > 0 && tokensThisTier > 0 && _rate > 0);
+      require(tierSelected >= 1 && tierSelected <= 4);
+
       uint weiThisTier = tokensThisTier.sub(tokensRaised).mul(1e18).div(_rate);
       uint weiNextTier = amount.sub(weiThisTier);
       uint tokensNextTier = 0;
