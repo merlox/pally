@@ -25,8 +25,9 @@ contract Crowdsale is Pausable {
    RefundVault public vault;
 
    // The block number of when the crowdsale starts
-   // TODO Change this because it's a testing time
-   uint256 public constant startTime = 1504224000;
+   // 10/15/2017 @ 11:00am (UTC)
+   // 10/15/2017 @ 12:00am (GMT + 1)
+   uint256 public constant startTime = 1508065200;
 
    // The block number of when the crowdsale ends
    // 11/13/2017 @ 11:00am (UTC)
