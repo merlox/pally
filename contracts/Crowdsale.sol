@@ -167,10 +167,10 @@ contract Crowdsale is Pausable {
    /// if the minimum goal of tokens hasn't been reached yet
    /// @param amountPaid The amount of ether paid
    function forwardFunds(uint256 amountPaid) internal whenNotPaused {
-      if(tokensRaised <= minimumGoal) {
-         vault.deposit.value(amountPaid)(msg.sender);
-      } else {
+      if(goalReached()) {
          wallet.transfer(amountPaid);
+      } else {
+         vault.deposit.value(amountPaid)(msg.sender);
       }
 
       // If the minimum goal of the ICO has been reach, close the vault to send
