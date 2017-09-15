@@ -27,7 +27,7 @@ contract Crowdsale is Pausable {
    // The block number of when the crowdsale starts
    // 10/15/2017 @ 11:00am (UTC)
    // 10/15/2017 @ 12:00am (GMT + 1)
-   uint256 public constant startTime = 1508065200;
+   uint256 public startTime = 1508065200;
 
    // The block number of when the crowdsale ends
    // 11/13/2017 @ 11:00am (UTC)
@@ -97,14 +97,22 @@ contract Crowdsale is Pausable {
    function Crowdsale(
       address _wallet,
       address _tokenAddress,
+      uint256 _startTime,
       uint256 _endTime
    ) payable {
       require(_wallet != address(0));
       require(_tokenAddress != address(0));
 
+      // If you send the start and end time on the constructor, the end must be larger
+      if(_startTime > 0 && _endTime > 0)
+         require(_startTime < _endTime);
+
       wallet = _wallet;
       token = PallyCoin(_tokenAddress);
       vault = new RefundVault(_wallet);
+
+      if(_startTime > 0)
+         startTime = _startTime;
 
       if(_endTime > 0)
          endTime = _endTime;
@@ -185,6 +193,8 @@ contract Crowdsale is Pausable {
    /// and refund the other 500 ether
    function calculateExcessBalance() internal whenNotPaused returns(uint256) {
       uint256 amountPaid = msg.value;
+      uint256 differenceWei = 0;
+      uint256 exceedingBalance = 0;
 
       // If we're in the last tier, check that the limit hasn't been reached
       // and if so, refund the difference and return what will be used to
@@ -197,28 +207,34 @@ contract Crowdsale is Pausable {
 
             // Refund the difference
             uint256 difference = addedTokens.sub(maxTokensRaised);
-            uint256 differenceWei = difference.mul(1e18).div(rateTier4);
+            differenceWei = difference.mul(1e18).div(rateTier4);
 
-            msg.sender.transfer(differenceWei);
             amountPaid = amountPaid.sub(differenceWei);
          }
       }
 
       uint256 addedBalance = crowdsaleBalances[msg.sender].add(amountPaid);
 
-      if(addedBalance <= 2000000000000000000000) {
+      if(addedBalance <= maxPurchase) {
          crowdsaleBalances[msg.sender] += amountPaid;
       } else {
 
          // Substracting 2000 ether in wei
-         uint256 exceedingBalance = addedBalance.sub(2000000000000000000000);
-
-         // Return the exceeding balance to the buyer
-         msg.sender.transfer(exceedingBalance);
+         exceedingBalance = addedBalance.sub(maxPurchase);
          amountPaid = msg.value.sub(exceedingBalance);
 
          // Add that balance to the balances
          crowdsaleBalances[msg.sender] += amountPaid;
+      }
+
+      // Make the transfers at the end of the function for security purposes
+      if(differenceWei > 0)
+         msg.sender.transfer(differenceWei);
+
+      if(exceedingBalance > 0) {
+
+         // Return the exceeding balance to the buyer
+         msg.sender.transfer(exceedingBalance);
       }
 
       return amountPaid;
@@ -289,10 +305,10 @@ contract Crowdsale is Pausable {
       uint tokensNextTier = 0;
 
       // If there's excessive wei for the last tier, refund those
-      if(tierSelected == 4)
-         msg.sender.transfer(weiNextTier);
-      else
+      if(tierSelected != 4)
          tokensNextTier = calculateTokensTier(weiNextTier, tierSelected.add(1));
+      else
+         msg.sender.transfer(weiNextTier);
 
       totalTokens = tokensThisTier.sub(tokensRaised).add(tokensNextTier);
    }
@@ -325,7 +341,7 @@ contract Crowdsale is Pausable {
       bool nonZeroPurchase = msg.value > 0;
       bool withinTokenLimit = tokensRaised < maxTokensRaised;
       bool minimumPurchase = msg.value >= minPurchase;
-      bool hasBalanceAvailable = crowdsaleBalances[msg.sender] < 2000000000000000000000;
+      bool hasBalanceAvailable = crowdsaleBalances[msg.sender] < maxPurchase;
 
       return withinPeriod && nonZeroPurchase && withinTokenLimit && minimumPurchase && hasBalanceAvailable;
    }

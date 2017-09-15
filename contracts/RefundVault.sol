@@ -17,12 +17,14 @@ contract RefundVault is Ownable {
   address public wallet;
   address private crowdsale;
   State public state;
+  uint256 public weiBalance;
 
   mapping (address => uint256) public deposited;
 
   event RefundsEnabled();
   event Refunded(address indexed beneficiary, uint256 weiAmount);
   event LogDeposited(address indexed buyer, uint256 amount);
+  event VaultClosed();
 
   modifier onlyCrowdsale() {
       require(msg.sender == crowdsale);
@@ -40,6 +42,7 @@ contract RefundVault is Ownable {
   function deposit(address investor) external payable onlyCrowdsale {
     require(state == State.Active);
 
+    weiBalance = weiBalance.add(msg.value);
     deposited[investor] = deposited[investor].add(msg.value);
     LogDeposited(msg.sender, msg.value);
   }
@@ -48,7 +51,8 @@ contract RefundVault is Ownable {
     require(state == State.Active);
 
     state = State.Closed;
-    wallet.transfer(this.balance);
+    wallet.transfer(weiBalance);
+    VaultClosed();
   }
 
   function enableRefunds() external onlyCrowdsale {
@@ -62,6 +66,7 @@ contract RefundVault is Ownable {
     require(state == State.Refunding);
 
     uint256 depositedValue = deposited[investor];
+    weiBalance = weiBalance.sub(depositedValue);
     deposited[investor] = 0;
     investor.transfer(depositedValue);
     Refunded(investor, depositedValue);

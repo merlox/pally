@@ -12,15 +12,6 @@ function getTokens(weiAmount, rate) {
    return weiAmount * rate / 1e18
 }
 
-function timeout(timer, cb) {
-   return new Promise((resolve, reject) => {
-      setTimeout(() => {
-         cb()
-         resolve()
-      }, timer)
-   })
-}
-
 /**
  * 1. Set the crowdsale address for the token instance
  * 2. Set the tier rates for the crowdsale instance
@@ -37,7 +28,10 @@ contract('Crowdsale', accounts => {
    // Create new token and crowdsale contract instances for each test
    beforeEach(async () => {
       tokenInstance = await PallyCoin.new()
-      crowdsaleInstance = await Crowdsale.new(web3.eth.accounts[0], tokenInstance.address, 0, {
+
+      const startTime = Math.floor(new Date().getTime() / 1000)
+
+      crowdsaleInstance = await Crowdsale.new(web3.eth.accounts[0], tokenInstance.address, startTime, 0, {
          from: web3.eth.accounts[0],
          gas: 4e6,
          value: web3.toWei(1, 'ether')
@@ -169,12 +163,10 @@ contract('Crowdsale', accounts => {
             value: amountToBuy2
          })
 
-         setTimeout(async () => {
-            const tokensRaised = (await crowdsaleInstance.tokensRaised()).toString()
+         const tokensRaised = (await crowdsaleInstance.tokensRaised()).toString()
 
-            assert.equal(tokensRaised, expectedTokens, 'The tokens raised are not correct')
-            resolve()
-         }, 2e3)
+         assert.equal(tokensRaised, expectedTokens, 'The tokens raised are not correct')
+         resolve()
       })
    })
 
@@ -219,13 +211,11 @@ contract('Crowdsale', accounts => {
             value: amountToBuy5
          })
 
-         setTimeout(async () => {
-            const tokensRaised = (await crowdsaleInstance.tokensRaised()).toString()
+         const tokensRaised = (await crowdsaleInstance.tokensRaised()).toString()
 
-            assert.equal(tokensRaised, expectedTokens, 'The tokens raised are not correct')
+         assert.equal(tokensRaised, expectedTokens, 'The tokens raised are not correct')
 
-            resolve()
-         }, 2e3)
+         resolve()
       })
    })
 
@@ -439,11 +429,13 @@ contract('Crowdsale', accounts => {
       return new Promise(async (resolve, reject) => {
          const times = new Date()
 
+         const startTime = Math.floor(new Date().getTime() / 1000)
+
          // Set the actual time + 5 seconds
          const endTime = Math.floor(times.setSeconds(times.getSeconds() + 5) / 1000)
 
          tokenInstance = await PallyCoin.new()
-         crowdsaleInstance = await Crowdsale.new(web3.eth.accounts[0], tokenInstance.address, endTime, {
+         crowdsaleInstance = await Crowdsale.new(web3.eth.accounts[0], tokenInstance.address, startTime, endTime, {
             from: web3.eth.accounts[0],
             gas: 4e6,
             value: web3.toWei(1, 'ether')
@@ -489,6 +481,8 @@ contract('Crowdsale', accounts => {
          const expectedTokens = 100000
          const initialTokenBalance = await tokenInstance.balanceOf(web3.eth.accounts[0])
 
+         const startTime = Math.floor(new Date().getTime() / 1000)
+
          // Set the actual time + 10 seconds
          const endTime = Math.floor(times.setSeconds(times.getSeconds() + 15) / 1000)
 
@@ -496,7 +490,7 @@ contract('Crowdsale', accounts => {
          tokenInstance = await PallyCoin.new()
 
          // Create a new instance with a modified end time
-         crowdsaleInstance = await Crowdsale.new(web3.eth.accounts[0], tokenInstance.address, endTime, {
+         crowdsaleInstance = await Crowdsale.new(web3.eth.accounts[0], tokenInstance.address, startTime, endTime, {
             from: web3.eth.accounts[0],
             gas: 4e6,
             value: web3.toWei(1, 'ether')
@@ -557,12 +551,13 @@ contract('Crowdsale', accounts => {
          const wallet = web3.eth.accounts[2]
          let initialBalance = await web3.eth.getBalance(wallet)
          const times = new Date()
+         const startTime = Math.floor(new Date().getTime() / 1000)
          const endTime = Math.floor(times.setSeconds(times.getSeconds() + 15) / 1000)
 
          // Create a new instance of the crowdsale to use a reduced time
          // and set a different wallet address to avoid gas charges
          tokenInstance = await PallyCoin.new()
-         crowdsaleInstance = await Crowdsale.new(wallet, tokenInstance.address, endTime, {
+         crowdsaleInstance = await Crowdsale.new(wallet, tokenInstance.address, startTime, endTime, {
             from: web3.eth.accounts[0],
             gas: 4e6,
             value: web3.toWei(1, 'ether')
