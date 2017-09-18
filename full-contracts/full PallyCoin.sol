@@ -265,7 +265,7 @@ contract PallyCoin is PausableToken {
 
    uint8 public constant decimals = 18;
 
-   uint256 public constant totalSupply = 100000000; // 100 M
+   uint256 public constant totalSupply = 100e24; // 100M tokens with 18 decimals
 
    // The tokens already used for the presale buyers
    uint256 public tokensDistributedPresale = 0;
@@ -289,7 +289,7 @@ contract PallyCoin is PausableToken {
    /// The owner, msg.sender, is able to do allowance for other contracts. Remember
    /// to use `transferFrom()` if you're allowed
    function PallyCoin() {
-      balances[msg.sender] = 40000000;
+      balances[msg.sender] = 40e24; // 40M tokens wei
    }
 
    /// @notice Function to set the crowdsale smart contract's address only by the owner of this token
@@ -308,7 +308,7 @@ contract PallyCoin is PausableToken {
       require(tokens > 0);
 
       // Check that the limit of 10M presale tokens hasn't been met yet
-      require(tokensDistributedPresale < 10000000);
+      require(tokensDistributedPresale < 10e24);
 
       tokensDistributedPresale = tokensDistributedPresale.add(tokens);
       balances[_buyer] = balances[_buyer].add(tokens);
@@ -322,7 +322,7 @@ contract PallyCoin is PausableToken {
       require(tokens > 0);
 
       // Check that the limit of 50M ICO tokens hasn't been met yet
-      require(tokensDistributedCrowdsale < 50000000);
+      require(tokensDistributedCrowdsale < 50e24);
 
       tokensDistributedCrowdsale = tokensDistributedCrowdsale.add(tokens);
       balances[_buyer] = balances[_buyer].add(tokens);

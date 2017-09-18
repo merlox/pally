@@ -8,16 +8,17 @@ module.exports = function(deployer, network) {
 
       // Deploy the token
       deployer.then(() => {
+
          return PallyCoin.new()
       }).then(tokenInstance => {
+
          return deployer.deploy(
             Crowdsale,
             web3.eth.accounts[0],
             tokenInstance.address,
-            0, 
+            0,
             0, {
-               from: web3.eth.accounts[0],
-               value: web3.toWei(1, 'ether')
+               from: web3.eth.accounts[0]
             }
          )
       })
