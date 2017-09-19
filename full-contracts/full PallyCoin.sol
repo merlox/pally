@@ -305,7 +305,7 @@ contract PallyCoin is PausableToken {
    /// @param tokens The amount of tokens corresponding to that buyer
    function distributePresaleTokens(address _buyer, uint tokens) external onlyOwner whenNotPaused {
       require(_buyer != address(0));
-      require(tokens > 0);
+      require(tokens > 0 && tokens <= 10e24);
 
       // Check that the limit of 10M presale tokens hasn't been met yet
       require(tokensDistributedPresale < 10e24);

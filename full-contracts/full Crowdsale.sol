@@ -626,7 +626,7 @@ contract Crowdsale is Pausable {
       uint256 addedBalance = crowdsaleBalances[msg.sender].add(amountPaid);
 
       if(addedBalance <= maxPurchase) {
-         crowdsaleBalances[msg.sender] += amountPaid;
+         crowdsaleBalances[msg.sender] = crowdsaleBalances[msg.sender].add(amountPaid);
       } else {
 
          // Substracting 2000 ether in wei
@@ -634,7 +634,7 @@ contract Crowdsale is Pausable {
          amountPaid = msg.value.sub(exceedingBalance);
 
          // Add that balance to the balances
-         crowdsaleBalances[msg.sender] += amountPaid;
+         crowdsaleBalances[msg.sender] = crowdsaleBalances[msg.sender].add(amountPaid);
       }
 
       // Make the transfers at the end of the function for security purposes
