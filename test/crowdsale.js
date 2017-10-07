@@ -24,6 +24,7 @@ contract('Crowdsale', accounts => {
    const rateTier2 = 4000
    const rateTier3 = 3000
    const rateTier4 = 2000
+   const maxPurchase = 1000
 
    // Create new token and crowdsale contract instances for each test
    beforeEach(async () => {
@@ -91,11 +92,11 @@ contract('Crowdsale', accounts => {
       })
    })
 
-   it("Should buy 10 million tokens for 2000 ether at rate 5000 with buyTokens()", () => {
+   it("Should buy 5 million tokens for 1000 ether at rate 5000 with buyTokens()", () => {
       return new Promise(async (resolve, reject) => {
-         const amountToBuy = web3.toWei(2000, 'ether')
+         const amountToBuy = web3.toWei(maxPurchase, 'ether')
          const initialTokenBalance = parseFloat(await tokenInstance.balanceOf(web3.eth.accounts[2]))
-         const expectedTokens = 10e24
+         const expectedTokens = 5e24
 
          await crowdsaleInstance.buyTokens({
             from: web3.eth.accounts[2],
@@ -113,10 +114,9 @@ contract('Crowdsale', accounts => {
       })
    })
 
-   it("Should calculate the excess tokens with the proper rates, buy 1000 ether + 2000 ether returning 14.5M instead of 15M", () => {
+   it("Should calculate the excess tokens with the proper rates, buy 1000 ether + 1000 + 1000 ether returning 14.5M instead of 15M", () => {
       return new Promise(async (resolve, reject) => {
-         const amountToBuy = web3.toWei(2000, 'ether')
-         const amountToBuy2 = web3.toWei(1000, 'ether')
+         const amountToBuy = web3.toWei(maxPurchase, 'ether')
          const expectedTokens = new web3.BigNumber(14.5e24)
 
          await crowdsaleInstance.buyTokens({
@@ -124,10 +124,18 @@ contract('Crowdsale', accounts => {
             value: amountToBuy
          })
 
-         const secondPurchaseTokens = await crowdsaleInstance.calculateExcessTokens(amountToBuy2, 12.5e24, 1, rateTier1, {
+         await crowdsaleInstance.buyTokens({
+            from: web3.eth.accounts[0],
+            value: amountToBuy
+         })
+
+         const secondPurchaseTokens = await crowdsaleInstance.calculateExcessTokens(amountToBuy, 12.5e24, 1, rateTier1, {
             from: web3.eth.accounts[1],
             gas: 4e6
          })
+         
+         console.log('Second purchase')
+         console.log(secondPurchaseTokens)
 
          assert.ok(new web3.BigNumber(10e24).add(secondPurchaseTokens).eq(expectedTokens),
             "The tokens received aren't correct"
@@ -137,27 +145,33 @@ contract('Crowdsale', accounts => {
       })
    })
 
-   it("Should buy 14.5 million tokens for 3000 ether with buyTokens() in steps of 2000 + 1000 ether respecting the max purchase limit of 2000 ether", () => {
+   it("Should buy 14.5 million tokens for 3000 ether with buyTokens() in steps of 1000 + 1000 ether respecting the max purchase limit of 2000 ether", () => {
       return new Promise(async (resolve, reject) => {
 
          // You can't buy more than 2000 ether as defined by maxPurchase so we split it
          // 2500 at tier 1 rate 5000 = 12.5 Million tokens
          // 500 at tier 2 rate 4000 = 2 Million tokens
-         const amountToBuy1 = web3.toWei(2000, 'ether')
-         const amountToBuy2 = web3.toWei(1000, 'ether')
+         const amountToBuy = web3.toWei(maxPurchase, 'ether')
          const expectedTokens = 14.5e24
 
          await crowdsaleInstance.buyTokens({
             from: web3.eth.accounts[0],
             gas: 4500000,
-            value: amountToBuy1
+            value: amountToBuy
          })
 
          // Change the from: because each user has a limitation of 2000 ether per purchase
          await crowdsaleInstance.buyTokens({
             from: web3.eth.accounts[1],
             gas: 4500000,
-            value: amountToBuy2
+            value: amountToBuy
+         })
+
+         // Change the from: because each user has a limitation of 2000 ether per purchase
+         await crowdsaleInstance.buyTokens({
+            from: web3.eth.accounts[2],
+            gas: 4500000,
+            value: amountToBuy
          })
 
          const tokensRaised = (await crowdsaleInstance.tokensRaised()).toString()
@@ -170,11 +184,8 @@ contract('Crowdsale', accounts => {
    it("Should buy 34 million tokens for 8625 ether with buyTokens()", () => {
       return new Promise(async (resolve, reject) => {
 
-         // You can't buy more than 2000 ether as defined by maxPurchase so we split it
-         const amountToBuy = web3.toWei(2000, 'ether')
-         const amountToBuy2 = web3.toWei(2000, 'ether')
-         const amountToBuy3 = web3.toWei(2000, 'ether')
-         const amountToBuy4 = web3.toWei(2000, 'ether')
+         // Buy 1000, 8 times
+         const amountToBuy = web3.toWei(maxPurchase, 'ether')
          const amountToBuy5 = web3.toWei(625, 'ether')
          const expectedTokens = 34e24
 
@@ -185,31 +196,54 @@ contract('Crowdsale', accounts => {
          })
 
          await crowdsaleInstance.buyTokens({
-            from: web3.eth.accounts[1],
+            from: web3.eth.accounts[0],
             gas: 4e6,
-            value: amountToBuy2
+            value: amountToBuy
          })
 
          await crowdsaleInstance.buyTokens({
-            from: web3.eth.accounts[2],
+            from: web3.eth.accounts[0],
             gas: 4e6,
-            value: amountToBuy3
+            value: amountToBuy
          })
 
          await crowdsaleInstance.buyTokens({
-            from: web3.eth.accounts[3],
+            from: web3.eth.accounts[0],
             gas: 4e6,
-            value: amountToBuy4
+            value: amountToBuy
          })
 
          await crowdsaleInstance.buyTokens({
-            from: web3.eth.accounts[4],
+            from: web3.eth.accounts[0],
+            gas: 4e6,
+            value: amountToBuy
+         })
+
+         await crowdsaleInstance.buyTokens({
+            from: web3.eth.accounts[0],
+            gas: 4e6,
+            value: amountToBuy
+         })
+
+         await crowdsaleInstance.buyTokens({
+            from: web3.eth.accounts[0],
+            gas: 4e6,
+            value: amountToBuy
+         })
+
+         await crowdsaleInstance.buyTokens({
+            from: web3.eth.accounts[0],
+            gas: 4e6,
+            value: amountToBuy
+         })
+
+         await crowdsaleInstance.buyTokens({
+            from: web3.eth.accounts[0],
             gas: 4e6,
             value: amountToBuy5
          })
 
          const tokensRaised = (await crowdsaleInstance.tokensRaised()).toString()
-
          assert.equal(tokensRaised, expectedTokens, 'The tokens raised are not correct')
 
          resolve()
@@ -217,10 +251,10 @@ contract('Crowdsale', accounts => {
    })
 
    // Checking that the balanceOf stays the same because the transaction was reverted
-   it("Should allow you to buy 3000 ether by returning 1000 and buying 2000", () => {
+   it("Should allow you to buy 3000 ether by returning 2000 and buying 1000", () => {
       return new Promise(async (resolve, reject) => {
          const amountToBuy = web3.toWei(3000, 'ether')
-         const expectedTokens = 10e24
+         const expectedTokens = 5e24
 
          await crowdsaleInstance.buyTokens({
             from: web3.eth.accounts[0],
@@ -265,71 +299,24 @@ contract('Crowdsale', accounts => {
       return new Promise(async (resolve, reject) => {
 
          // You can't buy more than 2000 ether as defined by maxPurchase so we split it
-         const amountToBuy = web3.toWei(2000, 'ether')
-         const amountToBuy2 = web3.toWei(2000, 'ether')
-         const amountToBuy3 = web3.toWei(2000, 'ether')
-         const amountToBuy4 = web3.toWei(2000, 'ether')
-         const amountToBuy5 = web3.toWei(2000, 'ether')
-         const amountToBuy6 = web3.toWei(2000, 'ether')
-         const amountToBuy7 = web3.toWei(2000, 'ether')
-         const amountToBuy8 = web3.toWei(2000, 'ether')
+         const amountToBuy = web3.toWei(maxPurchase, 'ether')
          const amountToBuy9 = web3.toWei(41.7, 'ether') // 41.6666...
-         const expectedTokens = new web3.BigNumber(5e25)
+         const expectedTokens = new web3.BigNumber(50e24)
 
-         await crowdsaleInstance.buyTokens({
-            from: web3.eth.accounts[0],
-            gas: 4e6,
-            value: amountToBuy
-         })
-
-         await crowdsaleInstance.buyTokens({
-            from: web3.eth.accounts[1],
-            gas: 4e6,
-            value: amountToBuy2
-         })
-
-         await crowdsaleInstance.buyTokens({
-            from: web3.eth.accounts[2],
-            gas: 4e6,
-            value: amountToBuy3
-         })
-
-         await crowdsaleInstance.buyTokens({
-            from: web3.eth.accounts[3],
-            gas: 4e6,
-            value: amountToBuy4
-         })
-
-         await crowdsaleInstance.buyTokens({
-            from: web3.eth.accounts[4],
-            gas: 4e6,
-            value: amountToBuy5
-         })
-
-         await crowdsaleInstance.buyTokens({
-            from: web3.eth.accounts[5],
-            gas: 4e6,
-            value: amountToBuy6
-         })
-
-         await crowdsaleInstance.buyTokens({
-            from: web3.eth.accounts[6],
-            gas: 4e6,
-            value: amountToBuy7
-         })
-
-         await crowdsaleInstance.buyTokens({
-            from: web3.eth.accounts[8],
-            gas: 4e6,
-            value: amountToBuy8
-         })
+         // Buy 1k, 16 times
+         for(let i = 0; i < 16; i++) {
+            await crowdsaleInstance.buyTokens({
+               from: web3.eth.accounts[0],
+               gas: 4e6,
+               value: amountToBuy
+            })
+         }
 
          await crowdsaleInstance.buyTokens({
             from: web3.eth.accounts[7],
             gas: 4e6,
             value: amountToBuy9
          })
-
 
          setTimeout(async () => {
             const tokensRaised = await crowdsaleInstance.tokensRaised()
@@ -347,70 +334,17 @@ contract('Crowdsale', accounts => {
       return new Promise(async (resolve, reject) => {
 
          // You can't buy more than 2000 ether as defined by maxPurchase so we split it
-         const amountToBuy = web3.toWei(2000, 'ether')
-         const amountToBuy2 = web3.toWei(2000, 'ether')
-         const amountToBuy3 = web3.toWei(2000, 'ether')
-         const amountToBuy4 = web3.toWei(2000, 'ether')
-         const amountToBuy5 = web3.toWei(2000, 'ether')
-         const amountToBuy6 = web3.toWei(2000, 'ether')
-         const amountToBuy7 = web3.toWei(2000, 'ether')
-         const amountToBuy8 = web3.toWei(2000, 'ether')
-         const amountToBuy9 = web3.toWei(2000, 'ether')
+         const amountToBuy = web3.toWei(maxPurchase, 'ether')
          const expectedTokens = 50e24
 
-         await crowdsaleInstance.buyTokens({
-            from: web3.eth.accounts[0],
-            gas: 4e6,
-            value: amountToBuy
-         })
-
-         await crowdsaleInstance.buyTokens({
-            from: web3.eth.accounts[1],
-            gas: 4e6,
-            value: amountToBuy2
-         })
-
-         await crowdsaleInstance.buyTokens({
-            from: web3.eth.accounts[2],
-            gas: 4e6,
-            value: amountToBuy3
-         })
-
-         await crowdsaleInstance.buyTokens({
-            from: web3.eth.accounts[3],
-            gas: 4e6,
-            value: amountToBuy4
-         })
-
-         await crowdsaleInstance.buyTokens({
-            from: web3.eth.accounts[4],
-            gas: 4e6,
-            value: amountToBuy5
-         })
-
-         await crowdsaleInstance.buyTokens({
-            from: web3.eth.accounts[5],
-            gas: 4e6,
-            value: amountToBuy6
-         })
-
-         await crowdsaleInstance.buyTokens({
-            from: web3.eth.accounts[6],
-            gas: 4e6,
-            value: amountToBuy7
-         })
-
-         await crowdsaleInstance.buyTokens({
-            from: web3.eth.accounts[7],
-            gas: 4e6,
-            value: amountToBuy8
-         })
-
-         await crowdsaleInstance.buyTokens({
-            from: web3.eth.accounts[8],
-            gas: 4e6,
-            value: amountToBuy9
-         })
+         // Buy 1k, 18 times
+         for(let i = 0; i < 18; i++) {
+            await crowdsaleInstance.buyTokens({
+               from: web3.eth.accounts[0],
+               gas: 4e6,
+               value: amountToBuy
+            })
+         }
 
          setTimeout(async () => {
             const tokensRaised = (await crowdsaleInstance.tokensRaised()).toString()
@@ -686,12 +620,12 @@ contract('Crowdsale', accounts => {
       })
    })
 
-   // Buy 1500 then 1000. It should only buy the remaining 500 and refund the other 500
-   it("Should only allow you to buy a total of 2000 ether during the entire crowdsale per buyer", () => {
+   // Buy 500 then 1000. It should only buy the remaining 500 and refund the other 500
+   it("Should only allow you to buy a total of 1000 ether during the entire crowdsale per buyer", () => {
       return new Promise(async (resolve, reject) => {
-         const amountToBuy = web3.toWei(1500, 'ether')
+         const amountToBuy = web3.toWei(500, 'ether')
          const amountToBuy2 = web3.toWei(1000, 'ether')
-         const expectedTokens = 10e24
+         const expectedTokens = 7.5e24
          const initialTokens = await tokenInstance.balanceOf(web3.eth.accounts[0])
 
          await crowdsaleInstance.buyTokens({
@@ -716,10 +650,16 @@ contract('Crowdsale', accounts => {
 
    it("Should check if the goal of the crowdsale has been reached or not", () => {
       return new Promise(async (resolve, reject) => {
-         const amountToBuy = web3.toWei(2000, 'ether') // 10 Million tokens
+         const amountToBuy = web3.toWei(1000, 'ether') // 5 Million tokens x 2 = 10M
          let goalReached = await crowdsaleInstance.goalReached()
 
          goalReached.should.equal(false, "The goal reached must not be true without buying")
+
+         await crowdsaleInstance.buyTokens({
+            from: web3.eth.accounts[0],
+            gas: 4e6,
+            value: amountToBuy
+         })
 
          await crowdsaleInstance.buyTokens({
             from: web3.eth.accounts[0],
