@@ -571,29 +571,22 @@ contract('Crowdsale', accounts => {
          const amountToBuy = web3.toWei(500, 'ether')
          const amountToBuy2 = web3.toWei(1000, 'ether')
          const expectedTokens = 5e24
+         const account = web3.eth.accounts[3]
+         const initialBalance = await tokenInstance.balanceOf(account)
 
          await crowdsaleInstance.buyTokens({
-            from: web3.eth.accounts[0],
+            from: account,
             value: amountToBuy
          })
-
          await crowdsaleInstance.buyTokens({
-            from: web3.eth.accounts[0],
+            from: account,
             value: amountToBuy2
          })
+         const finalTokens = await tokenInstance.balanceOf(account)
 
-         setTimeout(async () => {
-            const finalTokens = await tokenInstance.balanceOf(web3.eth.accounts[0])
+         assert.equal(parseFloat(finalTokens), initialBalance + expectedTokens, "The expected tokens don't match the final balance")
 
-            console.log('Final tokens')
-            console.log(finalTokens)
-            console.log('Expected tokens')
-            console.log(expectedTokens)
-
-            assert.equal(parseFloat(finalTokens), expectedTokens, "The expected tokens don't match the final balance")
-
-            resolve()
-         }, 3e3)
+         resolve()
       })
    })
 
@@ -606,13 +599,11 @@ contract('Crowdsale', accounts => {
 
          await crowdsaleInstance.buyTokens({
             from: web3.eth.accounts[0],
-            gas: 4e6,
             value: amountToBuy
          })
 
          await crowdsaleInstance.buyTokens({
-            from: web3.eth.accounts[0],
-            gas: 4e6,
+            from: web3.eth.accounts[1],
             value: amountToBuy
          })
 

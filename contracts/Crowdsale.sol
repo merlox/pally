@@ -190,7 +190,7 @@ contract Crowdsale is Pausable {
    /// @notice Calculates how many ether will be used to generate the tokens in
    /// case the buyer sends more than the maximum balance but has some balance left
    /// and updates the balance of that buyer.
-   /// For instance if he's 1500 balance and he sends 1000, it will return 500
+   /// For instance if he's 500 balance and he sends 1000, it will return 500
    /// and refund the other 500 ether
    function calculateExcessBalance() internal whenNotPaused returns(uint256) {
       uint256 amountPaid = msg.value;
@@ -220,7 +220,7 @@ contract Crowdsale is Pausable {
          crowdsaleBalances[msg.sender] = crowdsaleBalances[msg.sender].add(amountPaid);
       } else {
 
-         // Substracting 2000 ether in wei
+         // Substracting 1000 ether in wei
          exceedingBalance = addedBalance.sub(maxPurchase);
          amountPaid = msg.value.sub(exceedingBalance);
 
