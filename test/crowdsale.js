@@ -125,17 +125,14 @@ contract('Crowdsale', accounts => {
          })
 
          await crowdsaleInstance.buyTokens({
-            from: web3.eth.accounts[0],
+            from: web3.eth.accounts[1],
             value: amountToBuy
          })
 
          const secondPurchaseTokens = await crowdsaleInstance.calculateExcessTokens(amountToBuy, 12.5e24, 1, rateTier1, {
-            from: web3.eth.accounts[1],
+            from: web3.eth.accounts[2],
             gas: 4e6
          })
-         
-         console.log('Second purchase')
-         console.log(secondPurchaseTokens)
 
          assert.ok(new web3.BigNumber(10e24).add(secondPurchaseTokens).eq(expectedTokens),
             "The tokens received aren't correct"
@@ -145,7 +142,7 @@ contract('Crowdsale', accounts => {
       })
    })
 
-   it("Should buy 14.5 million tokens for 3000 ether with buyTokens() in steps of 1000 + 1000 ether respecting the max purchase limit of 2000 ether", () => {
+   it("Should buy 14.5 million tokens for 3000 ether with buyTokens() in steps of 1000 + 1000 ether respecting the max purchase limit", () => {
       return new Promise(async (resolve, reject) => {
 
          // You can't buy more than 2000 ether as defined by maxPurchase so we split it
@@ -154,30 +151,19 @@ contract('Crowdsale', accounts => {
          const amountToBuy = web3.toWei(maxPurchase, 'ether')
          const expectedTokens = 14.5e24
 
-         await crowdsaleInstance.buyTokens({
-            from: web3.eth.accounts[0],
-            gas: 4500000,
-            value: amountToBuy
-         })
+         for(let i = 0; i < 3; i++) {
+            await crowdsaleInstance.buyTokens({
+               from: web3.eth.accounts[i],
+               value: amountToBuy
+            })
+         }
 
-         // Change the from: because each user has a limitation of 2000 ether per purchase
-         await crowdsaleInstance.buyTokens({
-            from: web3.eth.accounts[1],
-            gas: 4500000,
-            value: amountToBuy
-         })
+         setTimeout(async () => {
+            const tokensRaised = (await crowdsaleInstance.tokensRaised()).toString()
 
-         // Change the from: because each user has a limitation of 2000 ether per purchase
-         await crowdsaleInstance.buyTokens({
-            from: web3.eth.accounts[2],
-            gas: 4500000,
-            value: amountToBuy
-         })
-
-         const tokensRaised = (await crowdsaleInstance.tokensRaised()).toString()
-
-         assert.equal(tokensRaised, expectedTokens, 'The tokens raised are not correct')
-         resolve()
+            assert.equal(tokensRaised, expectedTokens, 'The tokens raised are not correct')
+            resolve()
+         }, 2e3)
       })
    })
 
@@ -189,64 +175,25 @@ contract('Crowdsale', accounts => {
          const amountToBuy5 = web3.toWei(625, 'ether')
          const expectedTokens = 34e24
 
-         await crowdsaleInstance.buyTokens({
-            from: web3.eth.accounts[0],
-            gas: 4e6,
-            value: amountToBuy
-         })
+         for(let i = 0; i < 8; i++) {
+            await crowdsaleInstance.buyTokens({
+               from: web3.eth.accounts[i],
+               value: amountToBuy
+            })
+         }
 
          await crowdsaleInstance.buyTokens({
-            from: web3.eth.accounts[0],
-            gas: 4e6,
-            value: amountToBuy
-         })
-
-         await crowdsaleInstance.buyTokens({
-            from: web3.eth.accounts[0],
-            gas: 4e6,
-            value: amountToBuy
-         })
-
-         await crowdsaleInstance.buyTokens({
-            from: web3.eth.accounts[0],
-            gas: 4e6,
-            value: amountToBuy
-         })
-
-         await crowdsaleInstance.buyTokens({
-            from: web3.eth.accounts[0],
-            gas: 4e6,
-            value: amountToBuy
-         })
-
-         await crowdsaleInstance.buyTokens({
-            from: web3.eth.accounts[0],
-            gas: 4e6,
-            value: amountToBuy
-         })
-
-         await crowdsaleInstance.buyTokens({
-            from: web3.eth.accounts[0],
-            gas: 4e6,
-            value: amountToBuy
-         })
-
-         await crowdsaleInstance.buyTokens({
-            from: web3.eth.accounts[0],
-            gas: 4e6,
-            value: amountToBuy
-         })
-
-         await crowdsaleInstance.buyTokens({
-            from: web3.eth.accounts[0],
-            gas: 4e6,
+            from: web3.eth.accounts[20],
             value: amountToBuy5
          })
 
-         const tokensRaised = (await crowdsaleInstance.tokensRaised()).toString()
-         assert.equal(tokensRaised, expectedTokens, 'The tokens raised are not correct')
+         setTimeout(async () => {
+            const tokensRaised = (await crowdsaleInstance.tokensRaised()).toString()
 
-         resolve()
+            assert.equal(tokensRaised, expectedTokens, 'The tokens raised are not correct')
+
+            resolve()
+         }, 2e3)
       })
    })
 
@@ -306,25 +253,23 @@ contract('Crowdsale', accounts => {
          // Buy 1k, 16 times
          for(let i = 0; i < 16; i++) {
             await crowdsaleInstance.buyTokens({
-               from: web3.eth.accounts[0],
-               gas: 4e6,
+               from: web3.eth.accounts[i],
                value: amountToBuy
             })
          }
 
          await crowdsaleInstance.buyTokens({
-            from: web3.eth.accounts[7],
+            from: web3.eth.accounts[20],
             gas: 4e6,
             value: amountToBuy9
          })
 
          setTimeout(async () => {
             const tokensRaised = await crowdsaleInstance.tokensRaised()
-
             assert.ok(expectedTokens.eq(tokensRaised), 'The tokens raised are not correct')
 
             resolve()
-         }, 3e3)
+         }, 15e3)
       })
    })
 
@@ -340,7 +285,7 @@ contract('Crowdsale', accounts => {
          // Buy 1k, 18 times
          for(let i = 0; i < 18; i++) {
             await crowdsaleInstance.buyTokens({
-               from: web3.eth.accounts[0],
+               from: web3.eth.accounts[i],
                gas: 4e6,
                value: amountToBuy
             })
@@ -625,26 +570,30 @@ contract('Crowdsale', accounts => {
       return new Promise(async (resolve, reject) => {
          const amountToBuy = web3.toWei(500, 'ether')
          const amountToBuy2 = web3.toWei(1000, 'ether')
-         const expectedTokens = 7.5e24
-         const initialTokens = await tokenInstance.balanceOf(web3.eth.accounts[0])
+         const expectedTokens = 5e24
 
          await crowdsaleInstance.buyTokens({
             from: web3.eth.accounts[0],
-            gas: 4e6,
             value: amountToBuy
          })
 
          await crowdsaleInstance.buyTokens({
             from: web3.eth.accounts[0],
-            gas: 4e6,
             value: amountToBuy2
          })
 
-         const finalTokens = await tokenInstance.balanceOf(web3.eth.accounts[0])
+         setTimeout(async () => {
+            const finalTokens = await tokenInstance.balanceOf(web3.eth.accounts[0])
 
-         assert.equal(parseFloat(finalTokens), parseFloat(initialTokens) + expectedTokens, "The expected tokens don't match the final balance")
+            console.log('Final tokens')
+            console.log(finalTokens)
+            console.log('Expected tokens')
+            console.log(expectedTokens)
 
-         resolve()
+            assert.equal(parseFloat(finalTokens), expectedTokens, "The expected tokens don't match the final balance")
+
+            resolve()
+         }, 3e3)
       })
    })
 
