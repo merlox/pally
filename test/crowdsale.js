@@ -92,20 +92,28 @@ contract('Crowdsale', accounts => {
       })
    })
 
-   it("Should buy 5 million tokens for 1000 ether at rate 5000 with buyTokens()", () => {
+   it.only("Should buy 5 million tokens for 1000 ether at rate 5000 with buyTokens()", () => {
       return new Promise(async (resolve, reject) => {
-         const amountToBuy = web3.toWei(maxPurchase, 'ether')
+         const amountToBuy = web3.toWei(900, 'ether')
          const initialTokenBalance = parseFloat(await tokenInstance.balanceOf(web3.eth.accounts[2]))
          const expectedTokens = 5e24
 
          await crowdsaleInstance.buyTokens({
             from: web3.eth.accounts[2],
-            gas: 4e6,
             value: amountToBuy
          })
 
          const tokensRaised = (await crowdsaleInstance.tokensRaised()).toString()
          const finalTokenBalance = parseFloat(await tokenInstance.balanceOf(web3.eth.accounts[2]))
+
+         console.log('Initial')
+         console.log(initialTokenBalance)
+
+         console.log('tokensRaised')
+         console.log(tokensRaised)
+
+         console.log('finalTokenBalance')
+         console.log(finalTokenBalance)
 
          assert.equal(tokensRaised, expectedTokens, 'The tokens raised aren\'t correct')
          finalTokenBalance.should.equal(initialTokenBalance + expectedTokens, "The balance is not correct")

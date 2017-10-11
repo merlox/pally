@@ -54,9 +54,9 @@ contract Crowdsale is Pausable {
    uint256 public rateTier4;
 
    // The maximum amount of wei for each tier
-   uint256 public limitTier1 = limitTier1;
-   uint256 public limitTier2 = limitTier2;
-   uint256 public limitTier3 = limitTier3;
+   uint256 public limitTier1 = 12.5e24;
+   uint256 public limitTier2 = 25e24;
+   uint256 public limitTier3 = 37.5e24;
    uint256 public limitTier4 = 50e24;
 
    // The amount of wei raised
