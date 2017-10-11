@@ -1,5 +1,4 @@
-pragma solidity ^0.4.15;
-
+pragma solidity 0.4.15;
 
 /**
  * @title SafeMath
@@ -64,10 +63,10 @@ contract Ownable {
    * @param newOwner The address to transfer ownership to.
    */
   function transferOwnership(address newOwner) onlyOwner {
-    if (newOwner != address(0)) {
-      owner = newOwner;
-    }
+   require(newOwner != address(0));
+   owner = newOwner;
   }
+
 }
 
 
@@ -132,18 +131,6 @@ contract ERC20Basic {
 
 
 /**
- * @title ERC20 interface
- * @dev see https://github.com/ethereum/EIPs/issues/20
- */
-contract ERC20 is ERC20Basic {
-  function allowance(address owner, address spender) constant returns (uint256);
-  function transferFrom(address from, address to, uint256 value) returns (bool);
-  function approve(address spender, uint256 value) returns (bool);
-  event Approval(address indexed owner, address indexed spender, uint256 value);
-}
-
-
-/**
  * @title Basic token
  * @dev Basic version of StandardToken, with no allowances.
  */
@@ -177,6 +164,18 @@ contract BasicToken is ERC20Basic {
 
 
 /**
+ * @title ERC20 interface
+ * @dev see https://github.com/ethereum/EIPs/issues/20
+ */
+contract ERC20 is ERC20Basic {
+  function allowance(address owner, address spender) constant returns (uint256);
+  function transferFrom(address from, address to, uint256 value) returns (bool);
+  function approve(address spender, uint256 value) returns (bool);
+  event Approval(address indexed owner, address indexed spender, uint256 value);
+}
+
+
+/**
  * @title Standard ERC20 token
  *
  * @dev Implementation of the basic standard token.
@@ -195,14 +194,14 @@ contract StandardToken is ERC20, BasicToken {
    * @param _value uint256 the amout of tokens to be transfered
    */
   function transferFrom(address _from, address _to, uint256 _value) returns (bool) {
-    var _allowance = allowed[_from][msg.sender];
+    uint256 _allowance = allowed[_from][msg.sender];
 
     // Check is not needed because sub(_allowance, _value) will already throw if this condition is not met
     // require (_value <= _allowance);
 
-    balances[_to] = balances[_to].add(_value);
     balances[_from] = balances[_from].sub(_value);
     allowed[_from][msg.sender] = _allowance.sub(_value);
+    balances[_to] = balances[_to].add(_value);
     Transfer(_from, _to, _value);
     return true;
   }
@@ -243,6 +242,7 @@ contract StandardToken is ERC20, BasicToken {
  *
  * Simple ERC20 Token example, with pausable token creation
  **/
+
 contract PausableToken is StandardToken, Pausable {
 
   function transfer(address _to, uint _value) whenNotPaused returns (bool) {
@@ -255,7 +255,6 @@ contract PausableToken is StandardToken, Pausable {
 }
 
 
-/// @title The PallyCoin
 /// @author Merunas Grincalaitis
 contract PallyCoin is PausableToken {
    using SafeMath for uint256;
@@ -306,7 +305,7 @@ contract PallyCoin is PausableToken {
    /// @param tokens The amount of tokens corresponding to that buyer
    function distributePresaleTokens(address _buyer, uint tokens) external onlyOwner whenNotPaused {
       require(_buyer != address(0));
-      require(tokens > 0);
+      require(tokens > 0 && tokens <= 10e24);
 
       // Check that the limit of 10M presale tokens hasn't been met yet
       require(tokensDistributedPresale < 10e24);
@@ -342,81 +341,6 @@ contract PallyCoin is PausableToken {
    }
 }
 
-
-/**
- * @title RefundVault
- * @dev This contract is used for storing funds while a crowdsale
- * is in progress. Supports refunding the money if crowdsale fails,
- * and forwarding it if crowdsale is successful.
- */
-contract RefundVault is Ownable {
-  using SafeMath for uint256;
-
-  enum State { Active, Refunding, Closed }
-
-  address public wallet;
-  address private crowdsale;
-  State public state;
-  uint256 public weiBalance;
-
-  mapping (address => uint256) public deposited;
-
-  event RefundsEnabled();
-  event Refunded(address indexed beneficiary, uint256 weiAmount);
-  event LogDeposited(address indexed buyer, uint256 amount);
-  event VaultClosed();
-
-  modifier onlyCrowdsale() {
-      require(msg.sender == crowdsale);
-      _;
-  }
-
-  function RefundVault(address _wallet) {
-    require(_wallet != 0x0);
-
-    wallet = _wallet;
-    crowdsale = msg.sender;
-    state = State.Active;
-  }
-
-  function deposit(address investor) external payable onlyCrowdsale {
-    require(state == State.Active);
-
-    weiBalance = weiBalance.add(msg.value);
-    deposited[investor] = deposited[investor].add(msg.value);
-    LogDeposited(msg.sender, msg.value);
-  }
-
-  function close() external onlyCrowdsale {
-    require(state == State.Active);
-
-    state = State.Closed;
-    wallet.transfer(weiBalance);
-    VaultClosed();
-  }
-
-  function enableRefunds() external onlyCrowdsale {
-    require(state == State.Active);
-
-    state = State.Refunding;
-    RefundsEnabled();
-  }
-
-  function refund(address investor) external onlyCrowdsale {
-    require(state == State.Refunding);
-
-    uint256 depositedValue = deposited[investor];
-    weiBalance = weiBalance.sub(depositedValue);
-    deposited[investor] = 0;
-    investor.transfer(depositedValue);
-    Refunded(investor, depositedValue);
-  }
-}
-
-
-// 1. First you set the address of the wallet in the RefundVault contract that will store the deposit of ether
-// 2. If the goal is reached, the state of the vault will change and the ether will be sent to the address
-// 3. If the goal is not reached after 28 days, the state of the vault will change to refunding and the users will be able to call claimRefund() to get their ether
 
 /// @title Crowdsale contract to carry out an ICO with the PallyCoin
 /// Crowdsales have a start and end timestamps, where investors can make
@@ -462,6 +386,12 @@ contract Crowdsale is Pausable {
    // 37.5 million tokens sold and 50 million tokens sold
    uint256 public rateTier4;
 
+   // The maximum amount of wei for each tier
+   uint256 public limitTier1 = limitTier1;
+   uint256 public limitTier2 = limitTier2;
+   uint256 public limitTier3 = limitTier3;
+   uint256 public limitTier4 = 50e24;
+
    // The amount of wei raised
    uint256 public weiRaised = 0;
 
@@ -475,7 +405,7 @@ contract Crowdsale is Pausable {
    uint256 public constant minPurchase = 100 finney; // 0.1 ether
 
    // The max amount of Wei that you can pay to participate in the crowdsale
-   uint256 public constant maxPurchase = 2000 ether;
+   uint256 public constant maxPurchase = 1000 ether;
 
    // Minimum amount of tokens to be raised. 7.5 million tokens which is the 15%
    // of the total of 50 million tokens sold in the crowdsale
@@ -488,6 +418,9 @@ contract Crowdsale is Pausable {
 
    // If the crowdsale has ended or not
    bool public isEnded = false;
+
+   // The number of transactions
+   uint256 public numberOfTransactions;
 
    // How much each user paid for the crowdsale
    mapping(address => uint256) public crowdsaleBalances;
@@ -509,7 +442,7 @@ contract Crowdsale is Pausable {
       address _tokenAddress,
       uint256 _startTime,
       uint256 _endTime
-   ) {
+   ) public {
       require(_wallet != address(0));
       require(_tokenAddress != address(0));
 
@@ -540,31 +473,31 @@ contract Crowdsale is Pausable {
       uint256 tokens = 0;
       uint256 amountPaid = calculateExcessBalance();
 
-      if(tokensRaised < 12.5e24) {
+      if(tokensRaised < limitTier1) {
 
          // Tier 1
          tokens = amountPaid.mul(rate);
 
          // If the amount of tokens that you want to buy gets out of this tier
-         if(tokensRaised.add(tokens) > 12.5e24)
-            tokens = calculateExcessTokens(amountPaid, 12.5e24, 1, rate);
-      } else if(tokensRaised >= 12.5e24 && tokensRaised < 25e24) {
+         if(tokensRaised.add(tokens) > limitTier1)
+            tokens = calculateExcessTokens(amountPaid, limitTier1, 1, rate);
+      } else if(tokensRaised >= limitTier1 && tokensRaised < limitTier2) {
 
          // Tier 2
          tokens = amountPaid.mul(rateTier2);
 
          // If the amount of tokens that you want to buy gets out of this tier
-         if(tokensRaised.add(tokens) > 25e24)
-            tokens = calculateExcessTokens(amountPaid, 25e24, 2, rateTier2);
-      } else if(tokensRaised >= 25e24 && tokensRaised < 37.5e24) {
+         if(tokensRaised.add(tokens) > limitTier2)
+            tokens = calculateExcessTokens(amountPaid, limitTier2, 2, rateTier2);
+      } else if(tokensRaised >= limitTier2 && tokensRaised < limitTier3) {
 
          // Tier 3
          tokens = amountPaid.mul(rateTier3);
 
          // If the amount of tokens that you want to buy gets out of this tier
-         if(tokensRaised.add(tokens) > 37.5e24)
-            tokens = calculateExcessTokens(amountPaid, 37.5e24, 3, rateTier3);
-      } else if(tokensRaised >= 37.5e24) {
+         if(tokensRaised.add(tokens) > limitTier3)
+            tokens = calculateExcessTokens(amountPaid, limitTier3, 3, rateTier3);
+      } else if(tokensRaised >= limitTier3) {
 
          // Tier 4
          tokens = amountPaid.mul(rateTier4);
@@ -577,6 +510,7 @@ contract Crowdsale is Pausable {
       // Keep a record of how many tokens everybody gets in case we need to do refunds
       tokensBought[msg.sender] = tokensBought[msg.sender].add(tokens);
       TokenPurchase(msg.sender, amountPaid, tokens);
+      numberOfTransactions = numberOfTransactions.add(1);
 
       forwardFunds(amountPaid);
    }
@@ -599,7 +533,7 @@ contract Crowdsale is Pausable {
    /// @notice Calculates how many ether will be used to generate the tokens in
    /// case the buyer sends more than the maximum balance but has some balance left
    /// and updates the balance of that buyer.
-   /// For instance if he's 1500 balance and he sends 1000, it will return 500
+   /// For instance if he's 500 balance and he sends 1000, it will return 500
    /// and refund the other 500 ether
    function calculateExcessBalance() internal whenNotPaused returns(uint256) {
       uint256 amountPaid = msg.value;
@@ -609,7 +543,7 @@ contract Crowdsale is Pausable {
       // If we're in the last tier, check that the limit hasn't been reached
       // and if so, refund the difference and return what will be used to
       // buy the remaining tokens
-      if(tokensRaised >= 37.5e24) {
+      if(tokensRaised >= limitTier3) {
          uint256 addedTokens = tokensRaised.add(amountPaid.mul(rateTier4));
 
          // If tokensRaised + what you paid converted to tokens is bigger than the max
@@ -618,20 +552,20 @@ contract Crowdsale is Pausable {
             // Refund the difference
             uint256 difference = addedTokens.sub(maxTokensRaised);
             differenceWei = difference.div(rateTier4);
-
             amountPaid = amountPaid.sub(differenceWei);
          }
       }
 
       uint256 addedBalance = crowdsaleBalances[msg.sender].add(amountPaid);
 
+      // Checking that the individual limit of 1000 ETH per user is not reached
       if(addedBalance <= maxPurchase) {
          crowdsaleBalances[msg.sender] = crowdsaleBalances[msg.sender].add(amountPaid);
       } else {
 
-         // Substracting 2000 ether in wei
+         // Substracting 1000 ether in wei
          exceedingBalance = addedBalance.sub(maxPurchase);
-         amountPaid = msg.value.sub(exceedingBalance);
+         amountPaid = amountPaid.sub(exceedingBalance);
 
          // Add that balance to the balances
          crowdsaleBalances[msg.sender] = crowdsaleBalances[msg.sender].add(amountPaid);
@@ -661,6 +595,7 @@ contract Crowdsale is Pausable {
       external onlyOwner whenNotPaused
    {
       require(tier1 > 0 && tier2 > 0 && tier3 > 0 && tier4 > 0);
+      require(tier1 > tier2 && tier2 > tier3 && tier3 > tier4);
 
       rate = tier1;
       rateTier2 = tier2;
@@ -713,14 +648,18 @@ contract Crowdsale is Pausable {
       uint weiThisTier = tokensThisTier.sub(tokensRaised).div(_rate);
       uint weiNextTier = amount.sub(weiThisTier);
       uint tokensNextTier = 0;
+      bool returnTokens = false;
 
       // If there's excessive wei for the last tier, refund those
       if(tierSelected != 4)
          tokensNextTier = calculateTokensTier(weiNextTier, tierSelected.add(1));
       else
-         msg.sender.transfer(weiNextTier);
+         returnTokens = true;
 
       totalTokens = tokensThisTier.sub(tokensRaised).add(tokensNextTier);
+
+      // Do the transfer at the end
+      if(returnTokens) msg.sender.transfer(weiNextTier);
    }
 
    /// @notice Buys the tokens given the price of the tier one and the wei paid

@@ -53,6 +53,12 @@ contract Crowdsale is Pausable {
    // 37.5 million tokens sold and 50 million tokens sold
    uint256 public rateTier4;
 
+   // The maximum amount of wei for each tier
+   uint256 public limitTier1 = limitTier1;
+   uint256 public limitTier2 = limitTier2;
+   uint256 public limitTier3 = limitTier3;
+   uint256 public limitTier4 = 50e24;
+
    // The amount of wei raised
    uint256 public weiRaised = 0;
 
@@ -80,6 +86,9 @@ contract Crowdsale is Pausable {
    // If the crowdsale has ended or not
    bool public isEnded = false;
 
+   // The number of transactions
+   uint256 public numberOfTransactions;
+
    // How much each user paid for the crowdsale
    mapping(address => uint256) public crowdsaleBalances;
 
@@ -100,7 +109,7 @@ contract Crowdsale is Pausable {
       address _tokenAddress,
       uint256 _startTime,
       uint256 _endTime
-   ) {
+   ) public {
       require(_wallet != address(0));
       require(_tokenAddress != address(0));
 
@@ -131,31 +140,31 @@ contract Crowdsale is Pausable {
       uint256 tokens = 0;
       uint256 amountPaid = calculateExcessBalance();
 
-      if(tokensRaised < 12.5e24) {
+      if(tokensRaised < limitTier1) {
 
          // Tier 1
          tokens = amountPaid.mul(rate);
 
          // If the amount of tokens that you want to buy gets out of this tier
-         if(tokensRaised.add(tokens) > 12.5e24)
-            tokens = calculateExcessTokens(amountPaid, 12.5e24, 1, rate);
-      } else if(tokensRaised >= 12.5e24 && tokensRaised < 25e24) {
+         if(tokensRaised.add(tokens) > limitTier1)
+            tokens = calculateExcessTokens(amountPaid, limitTier1, 1, rate);
+      } else if(tokensRaised >= limitTier1 && tokensRaised < limitTier2) {
 
          // Tier 2
          tokens = amountPaid.mul(rateTier2);
 
          // If the amount of tokens that you want to buy gets out of this tier
-         if(tokensRaised.add(tokens) > 25e24)
-            tokens = calculateExcessTokens(amountPaid, 25e24, 2, rateTier2);
-      } else if(tokensRaised >= 25e24 && tokensRaised < 37.5e24) {
+         if(tokensRaised.add(tokens) > limitTier2)
+            tokens = calculateExcessTokens(amountPaid, limitTier2, 2, rateTier2);
+      } else if(tokensRaised >= limitTier2 && tokensRaised < limitTier3) {
 
          // Tier 3
          tokens = amountPaid.mul(rateTier3);
 
          // If the amount of tokens that you want to buy gets out of this tier
-         if(tokensRaised.add(tokens) > 37.5e24)
-            tokens = calculateExcessTokens(amountPaid, 37.5e24, 3, rateTier3);
-      } else if(tokensRaised >= 37.5e24) {
+         if(tokensRaised.add(tokens) > limitTier3)
+            tokens = calculateExcessTokens(amountPaid, limitTier3, 3, rateTier3);
+      } else if(tokensRaised >= limitTier3) {
 
          // Tier 4
          tokens = amountPaid.mul(rateTier4);
@@ -168,6 +177,7 @@ contract Crowdsale is Pausable {
       // Keep a record of how many tokens everybody gets in case we need to do refunds
       tokensBought[msg.sender] = tokensBought[msg.sender].add(tokens);
       TokenPurchase(msg.sender, amountPaid, tokens);
+      numberOfTransactions = numberOfTransactions.add(1);
 
       forwardFunds(amountPaid);
    }
@@ -200,7 +210,7 @@ contract Crowdsale is Pausable {
       // If we're in the last tier, check that the limit hasn't been reached
       // and if so, refund the difference and return what will be used to
       // buy the remaining tokens
-      if(tokensRaised >= 37.5e24) {
+      if(tokensRaised >= limitTier3) {
          uint256 addedTokens = tokensRaised.add(amountPaid.mul(rateTier4));
 
          // If tokensRaised + what you paid converted to tokens is bigger than the max
@@ -209,20 +219,20 @@ contract Crowdsale is Pausable {
             // Refund the difference
             uint256 difference = addedTokens.sub(maxTokensRaised);
             differenceWei = difference.div(rateTier4);
-
             amountPaid = amountPaid.sub(differenceWei);
          }
       }
 
       uint256 addedBalance = crowdsaleBalances[msg.sender].add(amountPaid);
 
+      // Checking that the individual limit of 1000 ETH per user is not reached
       if(addedBalance <= maxPurchase) {
          crowdsaleBalances[msg.sender] = crowdsaleBalances[msg.sender].add(amountPaid);
       } else {
 
          // Substracting 1000 ether in wei
          exceedingBalance = addedBalance.sub(maxPurchase);
-         amountPaid = msg.value.sub(exceedingBalance);
+         amountPaid = amountPaid.sub(exceedingBalance);
 
          // Add that balance to the balances
          crowdsaleBalances[msg.sender] = crowdsaleBalances[msg.sender].add(amountPaid);
@@ -252,6 +262,7 @@ contract Crowdsale is Pausable {
       external onlyOwner whenNotPaused
    {
       require(tier1 > 0 && tier2 > 0 && tier3 > 0 && tier4 > 0);
+      require(tier1 > tier2 && tier2 > tier3 && tier3 > tier4);
 
       rate = tier1;
       rateTier2 = tier2;
@@ -304,14 +315,18 @@ contract Crowdsale is Pausable {
       uint weiThisTier = tokensThisTier.sub(tokensRaised).div(_rate);
       uint weiNextTier = amount.sub(weiThisTier);
       uint tokensNextTier = 0;
+      bool returnTokens = false;
 
       // If there's excessive wei for the last tier, refund those
       if(tierSelected != 4)
          tokensNextTier = calculateTokensTier(weiNextTier, tierSelected.add(1));
       else
-         msg.sender.transfer(weiNextTier);
+         returnTokens = true;
 
       totalTokens = tokensThisTier.sub(tokensRaised).add(tokensNextTier);
+
+      // Do the transfer at the end
+      if(returnTokens) msg.sender.transfer(weiNextTier);
    }
 
    /// @notice Buys the tokens given the price of the tier one and the wei paid
