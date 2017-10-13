@@ -26,7 +26,7 @@ contract Crowdsale is Pausable {
 
    // The block number of when the crowdsale starts
    // 10/15/2017 @ 11:00am (UTC)
-   // 10/15/2017 @ 12:00am (GMT + 1)
+   // 10/15/2017 @ 12:00pm (GMT + 1)
    uint256 public startTime = 1508065200;
 
    // The block number of when the crowdsale ends
@@ -100,6 +100,12 @@ contract Crowdsale is Pausable {
 
    // Indicates if the crowdsale has ended
    event Finalized();
+
+   // Only allow the execution of the function before the crowdsale starts
+   modifier beforeStarting() {
+      require(now < startTime);
+      _;
+   }
 
    /// @notice Constructor of the crowsale to set up the main variables and create a token
    /// @param _wallet The wallet address that stores the Wei raised
@@ -259,7 +265,7 @@ contract Crowdsale is Pausable {
    /// @param tier3 The amount of tokens you get in the tier three
    /// @param tier4 The amount of tokens you get in the tier four
    function setTierRates(uint256 tier1, uint256 tier2, uint256 tier3, uint256 tier4)
-      external onlyOwner whenNotPaused
+      external onlyOwner whenNotPaused beforeStarting
    {
       require(tier1 > 0 && tier2 > 0 && tier3 > 0 && tier4 > 0);
       require(tier1 > tier2 && tier2 > tier3 && tier3 > tier4);

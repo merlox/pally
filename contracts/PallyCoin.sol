@@ -22,11 +22,30 @@ contract PallyCoin is PausableToken {
    // The tokens already used for the ICO buyers
    uint256 public tokensDistributedCrowdsale = 0;
 
+   // The address of the crowdsale
    address public crowdsale;
+
+   // The initial supply used for platform and development as specified in the whitepaper
+   uint256 public initialSupply = 40e24;
+
+   // The maximum amount of tokens for the presale investors
+   uint256 public limitPresale = 10e24;
+
+   // The maximum amount of tokens sold in the crowdsale
+   uint256 public limitCrowdsale = 50e24;
+
+   // When the crowdsale starts
+   uint256 public crowdsaleStartTime = 1508065200;
 
    /// @notice Only allows the execution of the function if it's comming from crowdsale
    modifier onlyCrowdsale() {
       require(msg.sender == crowdsale);
+      _;
+   }
+
+   /// @notice Modifier to only allow execution before the crowdsale starts
+   modifier beforeStarting() {
+      require(now < crowdsaleStartTime);
       _;
    }
 
@@ -38,12 +57,12 @@ contract PallyCoin is PausableToken {
    /// The owner, msg.sender, is able to do allowance for other contracts. Remember
    /// to use `transferFrom()` if you're allowed
    function PallyCoin() {
-      balances[msg.sender] = 40e24; // 40M tokens wei
+      balances[msg.sender] = initialSupply; // 40M tokens wei
    }
 
    /// @notice Function to set the crowdsale smart contract's address only by the owner of this token
    /// @param _crowdsale The address that will be used
-   function setCrowdsaleAddress(address _crowdsale) external onlyOwner whenNotPaused {
+   function setCrowdsaleAddress(address _crowdsale) external onlyOwner whenNotPaused beforeStarting {
       require(_crowdsale != address(0));
 
       crowdsale = _crowdsale;
@@ -54,10 +73,11 @@ contract PallyCoin is PausableToken {
    /// @param tokens The amount of tokens corresponding to that buyer
    function distributePresaleTokens(address _buyer, uint tokens) external onlyOwner whenNotPaused {
       require(_buyer != address(0));
-      require(tokens > 0 && tokens <= 10e24);
+      require(tokens > 0 && tokens <= limitPresale);
 
       // Check that the limit of 10M presale tokens hasn't been met yet
-      require(tokensDistributedPresale < 10e24);
+      require(tokensDistributedPresale < limitPresale);
+      require(tokensDistributedPresale.add(tokens) < limitPresale);
 
       tokensDistributedPresale = tokensDistributedPresale.add(tokens);
       balances[_buyer] = balances[_buyer].add(tokens);
@@ -71,7 +91,8 @@ contract PallyCoin is PausableToken {
       require(tokens > 0);
 
       // Check that the limit of 50M ICO tokens hasn't been met yet
-      require(tokensDistributedCrowdsale < 50e24);
+      require(tokensDistributedCrowdsale < limitCrowdsale);
+      require(tokensDistributedCrowdsale.add(tokens) < limitCrowdsale);
 
       tokensDistributedCrowdsale = tokensDistributedCrowdsale.add(tokens);
       balances[_buyer] = balances[_buyer].add(tokens);
