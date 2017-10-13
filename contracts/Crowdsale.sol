@@ -365,6 +365,9 @@ contract Crowdsale is Pausable {
       bool minimumPurchase = msg.value >= minPurchase;
       bool hasBalanceAvailable = crowdsaleBalances[msg.sender] < maxPurchase;
 
+      // We want to limit the gas to avoid giving priority to the biggest paying contributors
+      bool limitGas = msg.gas <= 300 gwei;
+
       return withinPeriod && nonZeroPurchase && withinTokenLimit && minimumPurchase && hasBalanceAvailable;
    }
 
