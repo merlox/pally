@@ -92,7 +92,7 @@ contract PallyCoin is PausableToken {
 
       // Check that the limit of 50M ICO tokens hasn't been met yet
       require(tokensDistributedCrowdsale < limitCrowdsale);
-      require(tokensDistributedCrowdsale.add(tokens) < limitCrowdsale);
+      require(tokensDistributedCrowdsale.add(tokens) <= limitCrowdsale);
 
       tokensDistributedCrowdsale = tokensDistributedCrowdsale.add(tokens);
       balances[_buyer] = balances[_buyer].add(tokens);

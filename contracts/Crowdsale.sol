@@ -57,7 +57,6 @@ contract Crowdsale is Pausable {
    uint256 public limitTier1 = 12.5e24;
    uint256 public limitTier2 = 25e24;
    uint256 public limitTier3 = 37.5e24;
-   uint256 public limitTier4 = 50e24;
 
    // The amount of wei raised
    uint256 public weiRaised = 0;
@@ -89,7 +88,8 @@ contract Crowdsale is Pausable {
    // The number of transactions
    uint256 public numberOfTransactions;
 
-   uint256 public limitGasPrice = 50 gwei;
+   // The gas price to buy tokens must be 50 gwei or below
+   uint256 public limitGasPrice = 50000000000 wei;
 
    // How much each user paid for the crowdsale
    mapping(address => uint256) public crowdsaleBalances;
