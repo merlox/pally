@@ -89,7 +89,7 @@ contract Crowdsale is Pausable {
    // The number of transactions
    uint256 public numberOfTransactions;
 
-   uint256 public limitGasPrice = 30 gwei;
+   uint256 public limitGasPrice = 50 gwei;
 
    // How much each user paid for the crowdsale
    mapping(address => uint256) public crowdsaleBalances;
