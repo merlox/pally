@@ -89,6 +89,8 @@ contract Crowdsale is Pausable {
    // The number of transactions
    uint256 public numberOfTransactions;
 
+   uint256 public limitGasPrice = 30 gwei;
+
    // How much each user paid for the crowdsale
    mapping(address => uint256) public crowdsaleBalances;
 
@@ -314,7 +316,7 @@ contract Crowdsale is Pausable {
       uint256 tokensThisTier,
       uint256 tierSelected,
       uint256 _rate
-   ) public constant returns(uint256 totalTokens) {
+   ) public returns(uint256 totalTokens) {
       require(amount > 0 && tokensThisTier > 0 && _rate > 0);
       require(tierSelected >= 1 && tierSelected <= 4);
 
@@ -366,9 +368,9 @@ contract Crowdsale is Pausable {
       bool hasBalanceAvailable = crowdsaleBalances[msg.sender] < maxPurchase;
 
       // We want to limit the gas to avoid giving priority to the biggest paying contributors
-      bool limitGas = msg.gas <= 300 gwei;
+      bool limitGas = tx.gasprice <= limitGasPrice;
 
-      return withinPeriod && nonZeroPurchase && withinTokenLimit && minimumPurchase && hasBalanceAvailable;
+      return withinPeriod && nonZeroPurchase && withinTokenLimit && minimumPurchase && hasBalanceAvailable && limitGas;
    }
 
    /// @notice To see if the minimum goal of tokens of the ICO has been reached
