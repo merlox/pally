@@ -4,17 +4,16 @@ import 'zeppelin-solidity/contracts/math/SafeMath.sol';
 import 'zeppelin-solidity/contracts/lifecycle/Pausable.sol';
 import './PallyCoin.sol';
 import './RefundVault.sol';
-
-// 1. First you set the address of the wallet in the RefundVault contract that will store the deposit of ether
+/// 1. First you set the address of the wallet in the RefundVault contract that will store the deposit of ether
 // 2. If the goal is reached, the state of the vault will change and the ether will be sent to the address
-// 3. If the goal is not reached after 28 days, the state of the vault will change to refunding and the users will be able to call claimRefund() to get their ether
+// 3. If the goal is not reached , the state of the vault will change to refunding and the users will be able to call claimRefund() to get their ether
 
 /// @title Crowdsale contract to carry out an ICO with the PallyCoin
 /// Crowdsales have a start and end timestamps, where investors can make
 /// token purchases and the crowdsale will assign them tokens based
 /// on a token per ETH rate. Funds collected are forwarded to a wallet
 /// as they arrive.
-/// @author Merunas Grincalaitis <merunasgrincalaitis@gmail.com>
+/// @author Manoj Patidar <patidarmanoj@gmail.com>
 contract Crowdsale is Pausable {
    using SafeMath for uint256;
 
@@ -36,6 +35,9 @@ contract Crowdsale is Pausable {
 
    // The wallet that holds the Wei raised on the crowdsale
    address public wallet;
+
+   // The wallet that holds the Wei raised on the crowdsale after soft cap reached
+   address public walletB;
 
    // The rate of tokens per ether. Only applied for the first tier, the first
    // 12.5 million tokens sold
@@ -68,15 +70,15 @@ contract Crowdsale is Pausable {
    uint256 public constant maxTokensRaised = 50e24;
 
    // The minimum amount of Wei you must pay to participate in the crowdsale
-   uint256 public constant minPurchase = 100 finney; // 0.1 ether
+   uint256 public constant minPurchase = 10 finney; // 0.01 ether
 
    // The max amount of Wei that you can pay to participate in the crowdsale
-   uint256 public constant maxPurchase = 1000 ether;
+   uint256 public constant maxPurchase = 2000 ether;
 
    // Minimum amount of tokens to be raised. 7.5 million tokens which is the 15%
    // of the total of 50 million tokens sold in the crowdsale
    // 7.5e6 + 1e18
-   uint256 public constant minimumGoal = 7.5e24;
+   uint256 public constant minimumGoal = 5.33e24;
 
    // If the crowdsale wasn't successful, this will be true and users will be able
    // to claim the refund of their ether
@@ -111,21 +113,25 @@ contract Crowdsale is Pausable {
 
    /// @notice Constructor of the crowsale to set up the main variables and create a token
    /// @param _wallet The wallet address that stores the Wei raised
+   /// @param _walletB The wallet address that stores the Wei raised after soft cap reached
    /// @param _tokenAddress The token used for the ICO
    function Crowdsale(
       address _wallet,
+      address _walletB,
       address _tokenAddress,
       uint256 _startTime,
       uint256 _endTime
    ) public {
       require(_wallet != address(0));
       require(_tokenAddress != address(0));
+      require(_walletB != address(0));
 
       // If you send the start and end time on the constructor, the end must be larger
       if(_startTime > 0 && _endTime > 0)
          require(_startTime < _endTime);
 
       wallet = _wallet;
+      walletB = _walletB;
       token = PallyCoin(_tokenAddress);
       vault = new RefundVault(_wallet);
 
@@ -146,6 +152,7 @@ contract Crowdsale is Pausable {
       require(validPurchase());
 
       uint256 tokens = 0;
+      
       uint256 amountPaid = calculateExcessBalance();
 
       if(tokensRaised < limitTier1) {
@@ -179,6 +186,7 @@ contract Crowdsale is Pausable {
       }
 
       weiRaised = weiRaised.add(amountPaid);
+      uint256 tokensRaisedBeforeThisTransaction = tokensRaised;
       tokensRaised = tokensRaised.add(tokens);
       token.distributeICOTokens(msg.sender, tokens);
 
@@ -187,17 +195,16 @@ contract Crowdsale is Pausable {
       TokenPurchase(msg.sender, amountPaid, tokens);
       numberOfTransactions = numberOfTransactions.add(1);
 
-      forwardFunds(amountPaid);
-   }
+      if(tokensRaisedBeforeThisTransaction > minimumGoal) {
 
-   /// @notice Sends the funds to the wallet or to the refund vault smart contract
-   /// if the minimum goal of tokens hasn't been reached yet
-   /// @param amountPaid The amount of ether paid
-   function forwardFunds(uint256 amountPaid) internal whenNotPaused {
-      if(goalReached()) {
-         wallet.transfer(amountPaid);
+         walletB.transfer(amountPaid);
+
       } else {
          vault.deposit.value(amountPaid)(msg.sender);
+         if(goalReached()) {
+          vault.close();
+         }
+         
       }
 
       // If the minimum goal of the ICO has been reach, close the vault to send
@@ -267,7 +274,7 @@ contract Crowdsale is Pausable {
    /// @param tier3 The amount of tokens you get in the tier three
    /// @param tier4 The amount of tokens you get in the tier four
    function setTierRates(uint256 tier1, uint256 tier2, uint256 tier3, uint256 tier4)
-      external onlyOwner whenNotPaused beforeStarting
+      external onlyOwner whenNotPaused
    {
       require(tier1 > 0 && tier2 > 0 && tier3 > 0 && tier4 > 0);
       require(tier1 > tier2 && tier2 > tier3 && tier3 > tier4);
@@ -277,6 +284,18 @@ contract Crowdsale is Pausable {
       rateTier3 = tier3;
       rateTier4 = tier4;
    }
+
+   /// @notice Allow to extend ICO end date
+   /// @param _endTime Endtime of ICO
+   function setEndDate(uint256 _endTime)
+      external onlyOwner whenNotPaused
+   {
+      require(now <= _endTime);
+      require(startTime < _endTime);
+      
+      endTime = _endTime;
+   }
+
 
    /// @notice Check if the crowdsale has ended and enables refunds only in case the
    /// goal hasn't been reached
@@ -288,12 +307,23 @@ contract Crowdsale is Pausable {
             isRefunding = true;
             isEnded = true;
             Finalized();
-         } else if(hasEnded() && goalReached()) {
-            vault.close();
+         } else if(hasEnded()  && goalReached()) {
+            
+            
+            isEnded = true; 
 
-            isEnded = true;
+
+            // Burn token only when minimum goal reached and maxGoal not reached. 
+            if(tokensRaised < maxTokensRaised) {
+
+               token.burnTokens();
+
+            } 
+
             Finalized();
-         }
+         } 
+         
+         
       }
    }
 
@@ -368,9 +398,9 @@ contract Crowdsale is Pausable {
       bool hasBalanceAvailable = crowdsaleBalances[msg.sender] < maxPurchase;
 
       // We want to limit the gas to avoid giving priority to the biggest paying contributors
-      bool limitGas = tx.gasprice <= limitGasPrice;
+      //bool limitGas = tx.gasprice <= limitGasPrice;
 
-      return withinPeriod && nonZeroPurchase && withinTokenLimit && minimumPurchase && hasBalanceAvailable && limitGas;
+      return withinPeriod && nonZeroPurchase && withinTokenLimit && minimumPurchase && hasBalanceAvailable;
    }
 
    /// @notice To see if the minimum goal of tokens of the ICO has been reached

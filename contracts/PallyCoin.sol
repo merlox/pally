@@ -3,8 +3,8 @@ pragma solidity 0.4.15;
 import 'zeppelin-solidity/contracts/math/SafeMath.sol';
 import 'zeppelin-solidity/contracts/token/PausableToken.sol';
 
-/// @title The PallyCoin
-/// @author Merunas Grincalaitis
+// @title The PallyCoin
+/// @author Manoj Patidar
 contract PallyCoin is PausableToken {
    using SafeMath for uint256;
 
@@ -14,7 +14,9 @@ contract PallyCoin is PausableToken {
 
    uint8 public constant decimals = 18;
 
-   uint256 public constant totalSupply = 100e24; // 100M tokens with 18 decimals
+   uint256 public  totalSupply = 100e24; // 100M tokens with 18 decimals
+
+   bool public remainingTokenBurnt = false;
 
    // The tokens already used for the presale buyers
    uint256 public tokensDistributedPresale = 0;
@@ -34,18 +36,9 @@ contract PallyCoin is PausableToken {
    // The maximum amount of tokens sold in the crowdsale
    uint256 public limitCrowdsale = 50e24;
 
-   // When the crowdsale starts
-   uint256 public crowdsaleStartTime = 1508065200;
-
    /// @notice Only allows the execution of the function if it's comming from crowdsale
    modifier onlyCrowdsale() {
       require(msg.sender == crowdsale);
-      _;
-   }
-
-   /// @notice Modifier to only allow execution before the crowdsale starts
-   modifier beforeStarting() {
-      require(now < crowdsaleStartTime);
       _;
    }
 
@@ -62,7 +55,7 @@ contract PallyCoin is PausableToken {
 
    /// @notice Function to set the crowdsale smart contract's address only by the owner of this token
    /// @param _crowdsale The address that will be used
-   function setCrowdsaleAddress(address _crowdsale) external onlyOwner whenNotPaused beforeStarting {
+   function setCrowdsaleAddress(address _crowdsale) external onlyOwner whenNotPaused {
       require(_crowdsale != address(0));
 
       crowdsale = _crowdsale;
@@ -108,5 +101,16 @@ contract PallyCoin is PausableToken {
 
       balances[_buyer] = balances[_buyer].sub(tokens);
       RefundedTokens(_buyer, tokens);
+   }
+
+   /// @notice Burn the amount of tokens remaining after ICO ends
+   function burnTokens() external onlyCrowdsale whenNotPaused {
+      
+      uint256 remainingICOToken = limitCrowdsale.sub(tokensDistributedCrowdsale);
+      if(remainingICOToken > 0 && !remainingTokenBurnt) {
+      remainingTokenBurnt = true;    
+      limitCrowdsale = limitCrowdsale.sub(remainingICOToken);  
+      totalSupply = totalSupply.sub(remainingICOToken);
+      }
    }
 }

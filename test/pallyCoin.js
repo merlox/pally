@@ -22,7 +22,7 @@ contract('PallyCoin', accounts => {
       tokenInstance = await PallyCoin.new()
 
       const startTime = Math.floor(new Date().getTime() / 1000)
-      crowdsaleInstance = await Crowdsale.new(web3.eth.accounts[0], tokenInstance.address, startTime, 0, {
+      crowdsaleInstance = await Crowdsale.new(web3.eth.accounts[0],web3.eth.accounts[1], tokenInstance.address, startTime, 0, {
          from: web3.eth.accounts[0],
          gas: 4e6
       })
