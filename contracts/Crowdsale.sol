@@ -13,7 +13,7 @@ import './RefundVault.sol';
 /// token purchases and the crowdsale will assign them tokens based
 /// on a token per ETH rate. Funds collected are forwarded to a wallet
 /// as they arrive.
-/// @author Manoj Patidar <patidarmanoj@gmail.com>
+/// @author Merunas Grincalaitis <merunasgrincalaitis@gmail.com>
 contract Crowdsale is Pausable {
    using SafeMath for uint256;
 
